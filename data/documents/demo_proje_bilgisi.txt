@@ -1,0 +1,19 @@
+Projenin adı Türkçe Local RAG Doküman Asistanı'dır.
+
+Projenin amacı, kullanıcıların yerel dokümanlarından hızlı, kaynaklı ve Türkçe cevaplar almasını sağlamaktır. Kullanıcı PDF, TXT veya Markdown dosyası yükleyebilir. Dokümanlar kullanıcının bilgisayarında işlenir.
+
+RAG, Retrieval-Augmented Generation ifadesinin kısaltmasıdır. Türkçe karşılığı getirim destekli üretim olarak açıklanabilir. Retrieve adımında soruyla ilgili doküman parçaları bulunur. Augment adımında bulunan parçalar dil modelinin bağlamına eklenir. Generate adımında model yalnızca bu bağlamı kullanarak cevap üretir.
+
+Foundry Local, dil modelinin kullanıcının kendi bilgisayarında çalışmasını sağlar. Bu projede küçük ve hızlı qwen2.5-0.5b modeli varsayılan olarak kullanılır. Model ilk kullanımda indirilebilir. Yerel çalışma, dokümanların harici bir yapay zekâ servisine gönderilmesi ihtiyacını azaltır.
+
+Sistem önce yüklenen dokümanlardan metin çıkarır. Uzun metinleri örtüşen küçük chunklara ayırır. TF-IDF ve cosine similarity kullanarak Türkçe soruyla en alakalı chunkları bulur. Bulunan içerikler Foundry Local modeline bağlam olarak verilir. Cevabın altında dosya adı, sayfa numarası, benzerlik skoru ve chunk önizlemesi gösterilir.
+
+Uygulamada üç çalışma modu bulunur: Soru-Cevap, Doküman Özeti ve Quiz Üret. Quiz modu dokümandan beş çoktan seçmeli soru hazırlamayı dener. Model cevabı boş, hatalı, çok kısa, tekrar eden veya chat template artığı içeriyorsa güvenli fallback sistemi devreye girer. Fallback yalnızca retrieved doküman parçalarından kısa maddeler oluşturur ve bilgi uydurmaz.
+
+Final tesliminde proje kaynak kodu GitHub'a yüklenecek ve yaklaşık 5 dakikalık bir sunum yapılacaktır. Sunumda doküman yükleme, chunking, retrieval, Foundry Local cevap üretimi, fallback ve kaynak gösterimi anlatılacaktır.
+
+Projenin limitasyonları vardır. TF-IDF kelime benzerliğine dayandığı için farklı dillerdeki aynı anlamı her zaman bulamayabilir. qwen2.5-0.5b küçük ve hızlıdır ancak her cevapta yüksek kalite sağlayamayabilir. Taranmış PDF dosyalarında metin çıkarılamayabilir ve çok büyük dosyaların işlenmesi uzun sürebilir.
+
+Gelecek geliştirmeler arasında çok dilli embedding tabanlı vektör arama, OCR desteği, sohbet geçmişi, çoklu doküman koleksiyonları ve daha gelişmiş kaynak doğrulama yer alır.
+
+Test için örnek sorular: Bu projenin amacı nedir? RAG bu projede nasıl kullanılıyor? Foundry Local neden kullanılıyor? Finalde ne teslim edilecek? Projenin limitasyonları nelerdir?

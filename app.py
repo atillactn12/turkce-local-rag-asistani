@@ -1,0 +1,211 @@
+"""Türkçe Local RAG Doküman Asistanı Streamlit arayüzü."""
+
+from pathlib import Path
+
+import streamlit as st
+
+from src.chunker import split_documents_into_chunks
+from src.document_loader import load_documents_from_folder
+from src.foundry_client import DEFAULT_MODEL_ALIAS, FoundryLLMClient
+from src.rag_pipeline import NOT_FOUND_MESSAGE, answer_question
+from src.retriever import SimpleRetriever
+from src.utils import format_page_number, save_uploaded_file
+
+
+PROJECT_ROOT = Path(__file__).resolve().parent
+DOCUMENTS_FOLDER = PROJECT_ROOT / "data" / "documents"
+EXAMPLE_QUESTIONS = [
+    "Bu dokümanın kısa özetini çıkar.",
+    "Bu dokümandaki en önemli konular nelerdir?",
+    "Bu dokümana göre öğrenciden ne bekleniyor?",
+    "Bu dokümanda geçen tarihleri ve önemli noktaları listele.",
+]
+
+
+def initialize_session_state() -> None:
+    """Streamlit yeniden çalıştığında korunacak değerleri hazırlar."""
+    defaults = {
+        "retriever": None,
+        "chunks": [],
+        "documents": [],
+        "last_result": None,
+        "question_text": "",
+        "model_alias": DEFAULT_MODEL_ALIAS,
+        "llm_client": None,
+        "result_title": "Cevap",
+    }
+    for key, value in defaults.items():
+        if key not in st.session_state:
+            st.session_state[key] = value
+
+
+def get_llm_client(model_alias: str) -> FoundryLLMClient:
+    """Seçilen alias için session içinde tek bir istemci tutar."""
+    current = st.session_state.llm_client
+    if current is None or current.model_alias != model_alias:
+        if current is not None:
+            current.unload()
+        st.session_state.llm_client = FoundryLLMClient(model_alias)
+    return st.session_state.llm_client
+
+
+def process_documents() -> None:
+    """Yerel dokümanları yükler, chunklara böler ve indeksler."""
+    documents = load_documents_from_folder(str(DOCUMENTS_FOLDER))
+    if not documents:
+        raise ValueError("İşlenebilir, boş olmayan doküman bulunamadı.")
+    chunks = split_documents_into_chunks(documents)
+    if not chunks:
+        raise ValueError("Dokümanlardan chunk oluşturulamadı.")
+    retriever = SimpleRetriever()
+    retriever.build_index(chunks)
+    st.session_state.documents = documents
+    st.session_state.chunks = chunks
+    st.session_state.retriever = retriever
+    st.session_state.last_result = None
+
+
+def show_sources(sources: list[dict]) -> None:
+    """Kaynakları profesyonel expander bileşenlerinde gösterir."""
+    st.subheader("Kullanılan Kaynaklar")
+    if not sources:
+        st.info("Kaynak bulunamadı.")
+        return
+    for order, source in enumerate(sources, start=1):
+        page = format_page_number(source.get("page_number"))
+        file_name = source.get("file_name", "Bilinmeyen dosya")
+        with st.expander(f"Kaynak {order} - {file_name} - Sayfa {page}"):
+            st.write(f"**Chunk ID:** {source.get('chunk_id', '-')}")
+            st.write(f"**Dosya adı:** {file_name}")
+            st.write(f"**Sayfa numarası:** {page}")
+            st.write(f"**Benzerlik skoru:** {float(source.get('score', 0.0)):.4f}")
+            st.write("**Chunk önizlemesi:**")
+            st.write(source.get("preview", ""))
+
+
+def automatic_question(mode: str) -> str:
+    """Özet ve quiz modları için dosya adlarını da içeren sorgu oluşturur."""
+    names = sorted({chunk.get("file_name", "") for chunk in st.session_state.chunks})
+    file_hint = ", ".join(name for name in names if name)
+    if mode == "Doküman Özeti":
+        return f"Bu dokümanı Türkçe olarak kısa, anlaşılır ve maddeler halinde özetle. Dosyalar: {file_hint}"
+    if mode == "Quiz Üret":
+        return (
+            "Bu dokümana göre 5 tane Türkçe çoktan seçmeli soru hazırla. "
+            "Her soruda 4 seçenek olsun ve doğru cevabı belirt. "
+            f"Dosyalar: {file_hint}"
+        )
+    return st.session_state.question_text.strip()
+
+
+def main() -> None:
+    st.set_page_config(page_title="Türkçe Local RAG Asistanı", page_icon="📚", layout="wide")
+    initialize_session_state()
+
+    st.title("📚 Türkçe Local RAG Doküman Asistanı")
+    st.write(
+        "Foundry Local LLM ile yerel dokümanlarınızdan Türkçe, kaynaklı ve "
+        "bağlama dayalı cevaplar üretin."
+    )
+
+    with st.sidebar:
+        st.header("1. Dokümanlar")
+        uploaded_files = st.file_uploader(
+            "PDF, TXT veya Markdown dosyası seçin",
+            type=["pdf", "txt", "md"],
+            accept_multiple_files=True,
+        )
+        if st.button("Dokümanları işle", use_container_width=True):
+            try:
+                for uploaded_file in uploaded_files or []:
+                    save_uploaded_file(uploaded_file, str(DOCUMENTS_FOLDER))
+                with st.spinner("Dokümanlar okunuyor ve indeksleniyor..."):
+                    process_documents()
+                st.success("Doküman indeksi hazırlandı.")
+            except Exception as error:
+                st.error(f"Dokümanlar işlenemedi: {error}")
+
+        if st.session_state.chunks:
+            file_count = len({item.get("file_path") for item in st.session_state.documents})
+            st.metric("Yüklenen dosya", file_count)
+            st.metric("Okunan doküman / sayfa", len(st.session_state.documents))
+            st.metric("Oluşturulan chunk", len(st.session_state.chunks))
+        else:
+            st.info("Henüz hazırlanmış bir indeks yok.")
+
+        st.divider()
+        st.header("2. Gelişmiş Ayarlar")
+        top_k = st.slider("Kaynak sayısı (top_k)", 1, 8, 5)
+        minimum_score = st.slider("Minimum benzerlik skoru", 0.00, 0.20, 0.03, 0.01)
+
+        st.divider()
+        st.header("3. Model Ayarı")
+        model_alias = st.text_input("Model alias", key="model_alias")
+        st.caption("Daha büyük model yazarsanız ilk kullanımda indirme süresi uzayabilir.")
+
+        st.divider()
+        st.header("4. Proje Bilgisi")
+        st.caption("Bu uygulama PDF, TXT ve Markdown dosyalarından RAG yöntemiyle cevap üretir.")
+
+    mode = st.radio(
+        "Çalışma modu seçin",
+        ["Soru-Cevap", "Doküman Özeti", "Quiz Üret"],
+        horizontal=True,
+    )
+
+    if mode == "Soru-Cevap":
+        st.subheader("Örnek sorular")
+        columns = st.columns(2)
+        for index, example in enumerate(EXAMPLE_QUESTIONS):
+            if columns[index % 2].button(example, key=f"example_{index}", use_container_width=True):
+                st.session_state.question_text = example
+        st.text_area("Türkçe sorunuzu yazın", key="question_text", height=110)
+        action_label, result_title = "Cevap üret", "Cevap"
+    elif mode == "Doküman Özeti":
+        st.info("İşlenen dokümanlar Türkçe ve maddeler halinde özetlenecek.")
+        action_label, result_title = "Özet oluştur", "Doküman Özeti"
+    else:
+        st.info("Doküman içeriğine göre 5 Türkçe çoktan seçmeli soru hazırlanacak.")
+        action_label, result_title = "Quiz oluştur", "Quiz"
+
+    if st.button(action_label, type="primary", use_container_width=True):
+        if st.session_state.retriever is None:
+            st.error("Önce dokümanları işleyin.")
+        elif not model_alias.strip():
+            st.error("Model alias boş olamaz.")
+        else:
+            question = automatic_question(mode)
+            if not question:
+                st.error("Lütfen bir soru yazın.")
+            else:
+                try:
+                    llm_client = get_llm_client(model_alias.strip())
+                    mode_top_k = min(8, max(top_k, 6)) if mode != "Soru-Cevap" else top_k
+                    with st.spinner("Model yükleniyor, ilk çalıştırma uzun sürebilir..."):
+                        result = answer_question(
+                            question, st.session_state.retriever, llm_client,
+                            top_k=mode_top_k, minimum_score=minimum_score,
+                        )
+                    if mode == "Quiz Üret" and result["answer"] == NOT_FOUND_MESSAGE:
+                        result["answer"] = "Quiz oluşturmak için yüklenen dokümanda yeterli bilgi bulunamadı."
+                    st.session_state.last_result = result
+                    st.session_state.result_title = result_title
+                except Exception as error:
+                    st.error(f"İşlem tamamlanamadı: {error}")
+
+    result = st.session_state.last_result
+    if result:
+        st.divider()
+        st.subheader(st.session_state.result_title)
+        st.success(result.get("answer", ""))
+        if result.get("used_fallback"):
+            st.warning("Model yanıtı yeterli olmadığı için güvenli doküman tabanlı fallback kullanıldı.")
+        else:
+            st.caption("Yanıt Foundry Local LLM ile üretildi.")
+        st.caption(f"Model: {result.get('model_alias', 'Bilinmiyor')}")
+        st.divider()
+        show_sources(result.get("sources", []))
+
+
+if __name__ == "__main__":
+    main()
