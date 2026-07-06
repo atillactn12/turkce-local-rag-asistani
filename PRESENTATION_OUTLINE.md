@@ -45,14 +45,14 @@ Doküman (PDF/TXT/MD)
        ↓
    [Sakla: SQLite Yerel Index]
        ↓
-   [Bul: Vektör / TF-IDF Retriever]
+   [Bul: TF-IDF / Deneysel Hibrit Arama]
        ↓
    [Üret: Foundry Local LLM  ← başarısızsa → Fallback]
        ↓
    Cevap + Kaynak Listesi
 ```
 
-**🗣 Konuşma notu:** "Doküman parçaları ve arama vektörleri önce SQLite tabanlı yerel indexe kaydedilir. Retrieval katmanı ilgili chunkları bulur; Foundry Local LLM yalnızca bu bağlam üzerinden cevap üretir. Model kötü cevap verirse doğrudan doküman parçalarından maddeler oluştururuz."
+**🗣 Konuşma notu:** "Doküman parçaları ve arama vektörleri önce SQLite tabanlı yerel indexe kaydedilir. Arama katmanı hibrit çalışacak şekilde tasarlanmıştır: TF-IDF kelime bazlı eşleşmeleri, desteklenirse embedding araması anlam bazlı eşleşmeleri yakalar. Embedding kullanılamazsa sistem TF-IDF yedeğiyle stabil kalır. Foundry Local LLM yalnızca bulunan bağlam üzerinden cevap üretir."
 
 ---
 
@@ -69,6 +69,9 @@ Doküman (PDF/TXT/MD)
 | **qwen2.5-0.5b** | Varsayılan yerel model (küçük ve hızlı) |
 
 **🗣 Konuşma notu:** "Her teknolojinin tek bir sorumluluğu var. Toplamda 7 Python dosyası — küçük ve anlaşılır."
+
+> Hibrit arama deneysel ve isteğe bağlıdır. Demo için varsayılan yöntem, hızlı
+> ve güvenilir TF-IDF aramasıdır.
 
 ---
 
@@ -94,7 +97,7 @@ Doküman (PDF/TXT/MD)
 - ✅ Model gerektirmeyen test (`test_retrieval.py`)
 
 **Gelecek:**
-- 🔮 Uygun olduğunda özel Foundry Local embedding modeli
+- 🔮 Daha geniş Foundry Local embedding model ve cihaz desteği
 - 🔮 OCR desteği (taranmış PDF'ler)
 - 🔮 Chat geçmişi
 - 🔮 Çoklu koleksiyon desteği

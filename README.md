@@ -26,6 +26,7 @@ Foundry Local, Microsoft tarafından sunulan bir yerel yapay zekâ geliştirme k
 - Dokümanları örtüşmeli metin parçalarına ayırma
 - Metin parçalarını ve vektörleri yerel SQLite dizininde saklama
 - TF-IDF vektörleri ve kosinüs benzerliği ile alakalı parçaları bulma
+- İsteğe bağlı, deneysel TF-IDF + Foundry embedding hibrit araması
 - Foundry Local LLM ile Türkçe cevap üretimi
 - **Dosya, sayfa, skor ve önizlemeli kaynak gösterimi**
 - **Doküman Özeti** ve **Quiz Üret** modları
@@ -42,7 +43,7 @@ Foundry Local, Microsoft tarafından sunulan bir yerel yapay zekâ geliştirme k
 | pypdf | PDF okuma |
 | scikit-learn | TF-IDF vektörleştirme ve kosinüs benzerliği |
 | SQLite | Metin parçalarını ve yerel arama vektörlerini kalıcı olarak saklama |
-| Foundry Local SDK | Yerel LLM yönetimi |
+| Foundry Local SDK | Yerel büyük dil modeli ve deneysel embedding desteği |
 
 ## 🏗 Sistem Mimarisi
 
@@ -55,7 +56,7 @@ Doküman (PDF/TXT/MD)
        ↓
    [SQLite Yerel Dizin] ──> Parçaları ve vektörleri sakla
        ↓
-   [Vektör / TF-IDF Araması] ──> İlgili parçaları bul
+   [TF-IDF / Deneysel Hibrit Arama] ──> İlgili parçaları bul
        ↓
    [Foundry Local LLM] ──> Yalnızca bulunan bağlamdan cevap üret
        ↓                         ↓ başarısızsa
@@ -75,6 +76,29 @@ Foundry Local büyük dil modeli yalnızca cevap üretiminde kullanılır. Proje
 modelinin her ortamda bulunduğunu iddia etmez. Gelecekte SDK ve cihaz desteği
 uygun olduğunda TF-IDF vektörleri özel bir Foundry Local embedding modeliyle
 değiştirilebilir.
+
+## 🔀 Hibrit Arama Modu
+
+TF-IDF, kelime bazlı eşleşmeleri hızlı ve kararlı biçimde bulur. Deneysel
+embedding araması ise uygun bir model bulunduğunda anlam bakımından benzer metin
+parçalarını yakalamayı amaçlar. Hibrit mod iki sonuç listesini birleştirir;
+iki yöntemde de bulunan parçalara ek ağırlık verir. Embedding tarafı hazırlanamaz
+veya arama sırasında hata verirse uygulama otomatik olarak TF-IDF sonuçlarını
+kullanır.
+
+Bu sürümde TF-IDF güvenli varsayılan arama yöntemidir. Hybrid mod, Foundry Local embedding desteği uygun olduğunda semantik aramayı TF-IDF ile birleştirmek için deneysel olarak tasarlanmıştır.
+
+Foundry embedding kullanımı için modelin önceden yerel önbelleğe indirilmiş olması
+ve alias değerinin açıkça belirtilmesi gerekir:
+
+```bash
+export FOUNDRY_EMBEDDING_MODEL_ALIAS=<yerel-embedding-model-alias>
+```
+
+Uygulama embedding modeli indirmez. Alias belirtilmezse, Foundry Local yöneticisi
+henüz başlatılmamışsa, model önbellekte değilse veya model embedding yeteneğine
+sahip değilse güvenli TF-IDF araması kullanılır. Mevcut LLM yaşam döngüsünü
+korumak için embedding bileşeni Foundry yöneticisini kendiliğinden başlatmaz.
 
 ## 📁 Klasör Yapısı
 
@@ -189,6 +213,7 @@ python test_retrieval.py
 | Limitasyon | Açıklama |
 |------------|----------|
 | TF-IDF vektörleri | Kelime eşleşmesine dayanır; özel bir semantik embedding modeli kadar güçlü değildir |
+| Deneysel embedding | Yalnızca uyumlu ve önceden indirilmiş Foundry Local embedding modeliyle etkinleşir |
 | Model kalitesi | Seçilen yerel modele bağlıdır |
 | Büyük PDF'ler | İşlem süresi uzayabilir |
 | Taranmış PDF'ler | Metin çıkarma kalitesi düşük olabilir |
@@ -196,7 +221,7 @@ python test_retrieval.py
 
 ## 🔮 Gelecek Geliştirmeler
 
-- [ ] Uygun olduğunda özel Foundry Local embedding modeli
+- [ ] Daha geniş Foundry Local embedding model ve cihaz desteği
 - [ ] Sohbet geçmişi
 - [ ] OCR desteği (taranmış PDF'ler için)
 - [ ] Gelişmiş kaynak vurgulama
