@@ -2,6 +2,7 @@
 .venv-*/
 venv/
 __pycache__/
+*.pyc
 *.py[cod]
 *.egg-info/
 .env
@@ -11,6 +12,7 @@ __pycache__/
 .idea/
 .vscode/
 data/index/
+data/index/*.sqlite
 .streamlit/
 *.tmp
 *.temp

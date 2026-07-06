@@ -43,14 +43,16 @@ Doküman (PDF/TXT/MD)
        ↓
    [Böl: Chunker]
        ↓
-   [Bul: TF-IDF Retriever]
+   [Sakla: SQLite Yerel Index]
+       ↓
+   [Bul: Vektör / TF-IDF Retriever]
        ↓
    [Üret: Foundry Local LLM  ← başarısızsa → Fallback]
        ↓
    Cevap + Kaynak Listesi
 ```
 
-**🗣 Konuşma notu:** "Retrieve (dokümanı parçala ve ilgili kısmı bul), Augment (bulunan parçayı modele bağlam olarak ver), Generate (model bağlama dayanarak cevap üretir). Eğer model kötü cevap verirse doğrudan doküman parçalarından maddeler oluştururuz."
+**🗣 Konuşma notu:** "Doküman parçaları ve arama vektörleri önce SQLite tabanlı yerel indexe kaydedilir. Retrieval katmanı ilgili chunkları bulur; Foundry Local LLM yalnızca bu bağlam üzerinden cevap üretir. Model kötü cevap verirse doğrudan doküman parçalarından maddeler oluştururuz."
 
 ---
 
@@ -62,6 +64,7 @@ Doküman (PDF/TXT/MD)
 | **Streamlit** | Web arayüzü (sadece `app.py`) |
 | **pypdf** | PDF dosyalarından metin çıkarma |
 | **scikit-learn** | TF-IDF vektörleştirme + cosine similarity |
+| **SQLite** | Chunk ve arama vektörlerini yerel olarak saklama |
 | **Foundry Local SDK** | LLM'yi yerelde indirme, yükleme, çalıştırma |
 | **qwen2.5-0.5b** | Varsayılan yerel model (küçük ve hızlı) |
 
@@ -91,12 +94,12 @@ Doküman (PDF/TXT/MD)
 - ✅ Model gerektirmeyen test (`test_retrieval.py`)
 
 **Gelecek:**
-- 🔮 Embedding tabanlı vector search (daha iyi anlam)
+- 🔮 Uygun olduğunda özel Foundry Local embedding modeli
 - 🔮 OCR desteği (taranmış PDF'ler)
 - 🔮 Chat geçmişi
 - 🔮 Çoklu koleksiyon desteği
 
-**🗣 Konuşma notu:** "Şu an TF-IDF kullanıyoruz — basit ama çalışıyor. Limitlerini biliyoruz ve fallback ile güvence altına alıyoruz. Gelecekte embedding'lerle çok daha iyi sonuç alınabilir."
+**🗣 Konuşma notu:** "SQLite yerel index ve TF-IDF tabanlı vektör araması kullanıyoruz. Bu yaklaşım indirme gerektirmeden kararlı çalışıyor; gelecekte özel bir embedding modeliyle semantik arama güçlendirilebilir."
 
 ---
 

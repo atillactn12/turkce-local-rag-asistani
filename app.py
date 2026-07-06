@@ -10,16 +10,18 @@ from src.foundry_client import DEFAULT_MODEL_ALIAS, FoundryLLMClient
 from src.rag_pipeline import NOT_FOUND_MESSAGE, answer_question
 from src.retriever import SimpleRetriever
 from src.utils import format_page_number, save_uploaded_file
+from src.vector_store import SQLiteVectorStore
 
 
 PROJECT_ROOT = Path(__file__).resolve().parent
 DOCUMENTS_FOLDER = PROJECT_ROOT / "data" / "documents"
+INDEX_DB_PATH = PROJECT_ROOT / "data" / "index" / "rag_index.sqlite"
 SUPPORTED_DOCUMENT_EXTENSIONS = {".txt", ".md", ".pdf"}
 EXAMPLE_QUESTIONS = [
-    "Bu dokümanın kısa özetini çıkar.",
-    "Bu dokümandaki en önemli konular nelerdir?",
-    "Bu dokümana göre öğrenciden ne bekleniyor?",
-    "Bu dokümanda geçen tarihleri ve önemli noktaları listele.",
+    "Dokümanın amacı ve kapsamı nedir?",
+    "Ana konuları ve önemli noktaları listele.",
+    "Bu dokümana göre yapılması gerekenleri çıkar.",
+    "Dokümanda cevabı olan 3 örnek soru öner.",
 ]
 
 
@@ -58,8 +60,21 @@ def clear_uploaded_documents() -> None:
             file_path.unlink()
 
 
+def clear_local_index() -> None:
+    """SQLite içindeki aktif chunk ve vektör kayıtlarını güvenle temizler."""
+    vector_store = SQLiteVectorStore(str(INDEX_DB_PATH))
+    try:
+        vector_store.initialize()
+        vector_store.clear()
+    finally:
+        vector_store.close()
+
+
 def reset_document_state() -> None:
     """Doküman ve cevapla ilgili session state değerlerini sıfırlar."""
+    current_retriever = st.session_state.retriever
+    if current_retriever is not None and hasattr(current_retriever, "close"):
+        current_retriever.close()
     st.session_state.documents = []
     st.session_state.chunks = []
     st.session_state.retriever = None
@@ -74,7 +89,10 @@ def process_documents() -> None:
     chunks = split_documents_into_chunks(documents)
     if not chunks:
         raise ValueError("Dokümanlardan chunk oluşturulamadı.")
-    retriever = SimpleRetriever()
+    current_retriever = st.session_state.retriever
+    if current_retriever is not None and hasattr(current_retriever, "close"):
+        current_retriever.close()
+    retriever = SimpleRetriever(db_path=str(INDEX_DB_PATH))
     retriever.build_index(chunks)
     st.session_state.documents = documents
     st.session_state.chunks = chunks
@@ -159,6 +177,7 @@ def main() -> None:
             try:
                 clear_uploaded_documents()
                 reset_document_state()
+                clear_local_index()
                 st.success("Yüklenen dokümanlar ve aktif indeks temizlendi.")
             except Exception as error:
                 st.error(f"Dokümanlar temizlenemedi: {error}")
@@ -184,6 +203,14 @@ def main() -> None:
         st.divider()
         st.header("ℹ️ Proje Bilgisi")
         st.caption("Bu uygulama; PDF, TXT ve Markdown dosyalarınızı kullanarak RAG (Retrieval-Augmented Generation) yöntemiyle sorularınızı cevaplar, özet çıkarır ve quiz oluşturur.")
+        st.caption("Yerel index: SQLite + TF-IDF fallback")
+        if (
+            st.session_state.retriever is not None
+            and getattr(st.session_state.retriever, "sqlite_ready", False)
+        ):
+            st.success("SQLite index hazır.")
+        elif st.session_state.retriever is not None:
+            st.caption("SQLite kullanılamadı; TF-IDF fallback hazır.")
 
     mode = st.radio(
         "Çalışma modu seçin",
