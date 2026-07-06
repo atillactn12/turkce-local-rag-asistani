@@ -1,0 +1,443 @@
+AKILLI KAMPÜS ENERJİ YÖNETİM SİSTEMİ
+Türkçe RAG Test Dokümanı
+Sürüm: 1.0
+Hazırlanma amacı: Local RAG doküman asistanını test etmek
+
+============================================================
+1. DOKÜMANIN AMACI
+============================================================
+
+Bu doküman, "Akıllı Kampüs Enerji Yönetim Sistemi" adlı kurgusal bir yazılım projesini anlatmak için hazırlanmıştır. Dokümanın temel amacı, Türkçe Local RAG Doküman Asistanı gibi sistemlerin uzun metinlerden doğru bilgi bulup bulamadığını test etmektir.
+
+Bu metin özellikle aşağıdaki test senaryoları için uygundur:
+
+- Doküman özeti çıkarma
+- Belirli bir başlık altındaki bilgiyi bulma
+- Tarihleri ve önemli noktaları listeleme
+- Çoktan seçmeli quiz üretme
+- Dokümanda olmayan bilgi sorulduğunda "bulunamadı" cevabı verme
+- Kaynak gösteriminin doğru çalışıp çalışmadığını kontrol etme
+
+Doküman gerçek bir şirket veya kurum bilgisi içermez. Tamamen eğitim ve test amacıyla oluşturulmuştur.
+
+============================================================
+2. PROJE TANIMI
+============================================================
+
+Akıllı Kampüs Enerji Yönetim Sistemi, üniversite kampüslerinde elektrik tüketimini izlemek, analiz etmek ve optimize etmek için tasarlanmış bir yazılım projesidir. Sistem; fakülte binaları, laboratuvarlar, kütüphane, yemekhane, yurtlar ve idari binalardaki enerji tüketimini merkezi bir panelden takip etmeyi hedefler.
+
+Projenin ana hedefi, kampüs genelinde enerji israfını azaltmak ve yöneticilere veri temelli karar desteği sağlamaktır. Sistem, sensörlerden gelen tüketim verilerini işler, anormal tüketim davranışlarını tespit eder ve öneriler üretir.
+
+Örneğin bir laboratuvar binasında gece saatlerinde normalden yüksek elektrik tüketimi tespit edilirse sistem bunu "anomali" olarak işaretler. Yönetici panelinde bu durum için bir uyarı oluşur ve ilgili teknik ekip bilgilendirilebilir.
+
+Bu proje özellikle sürdürülebilirlik, maliyet azaltma, veri analizi ve akıllı bina yönetimi alanlarında kullanılabilir.
+
+============================================================
+3. HEDEF KULLANICILAR
+============================================================
+
+Sistemin hedef kullanıcıları şunlardır:
+
+1. Kampüs enerji yöneticileri:
+   Elektrik tüketimini genel olarak takip eder, raporları inceler ve enerji tasarrufu kararları alır.
+
+2. Teknik bakım ekibi:
+   Anormal tüketim uyarılarını görür, arızalı cihaz veya sistemleri kontrol eder.
+
+3. Fakülte yöneticileri:
+   Kendi binalarındaki tüketim performansını takip eder.
+
+4. Sürdürülebilirlik ofisi:
+   Karbon salınımı ve enerji verimliliği raporları hazırlar.
+
+5. Üniversite üst yönetimi:
+   Genel maliyetleri ve stratejik hedefleri değerlendirir.
+
+Öğrenciler sistemin doğrudan yönetici kullanıcısı değildir. Ancak ileride öğrencilere açık bir bilgilendirme paneli eklenmesi planlanmaktadır.
+
+============================================================
+4. TEMEL ÖZELLİKLER
+============================================================
+
+Sistem aşağıdaki temel özelliklere sahiptir:
+
+- Gerçek zamanlı enerji tüketimi izleme
+- Günlük, haftalık ve aylık rapor üretme
+- Bina bazlı tüketim karşılaştırması
+- Anormal tüketim tespiti
+- Enerji tasarrufu önerileri
+- Kullanıcı rollerine göre yetkilendirme
+- Grafik ve tablo tabanlı yönetim paneli
+- CSV ve PDF rapor dışa aktarma
+- E-posta ile uyarı gönderme
+- Kritik tüketim eşikleri tanımlama
+
+İlk sürümde mobil uygulama bulunmamaktadır. Sistem web tabanlı bir panel olarak tasarlanmıştır. Mobil uygulama, gelecek geliştirmeler arasında yer almaktadır.
+
+============================================================
+5. SİSTEMİN ÇALIŞMA MANTIĞI
+============================================================
+
+Sistem dört ana aşamada çalışır:
+
+1. Veri Toplama:
+   Kampüs binalarındaki akıllı sayaçlar ve sensörler elektrik tüketim verilerini toplar. Bu veriler belirli aralıklarla merkezi sunucuya gönderilir.
+
+2. Veri İşleme:
+   Gelen veriler temizlenir, eksik veya hatalı ölçümler filtrelenir. Ardından tüketim değerleri bina, saat, gün ve kategori bazında düzenlenir.
+
+3. Analiz:
+   Sistem geçmiş tüketim verileriyle güncel verileri karşılaştırır. Beklenen değerden ciddi sapmalar varsa anomali tespiti yapılır.
+
+4. Raporlama:
+   Kullanıcılar yönetim paneli üzerinden grafikler, tablolar ve öneriler görür. Gerekirse raporlar PDF veya CSV formatında dışa aktarılır.
+
+Bu akış sayesinde kullanıcılar sadece ham veri görmekle kalmaz, aynı zamanda yorumlanmış ve karar almaya uygun bilgiler elde eder.
+
+============================================================
+6. TEKNİK MİMARİ
+============================================================
+
+Proje aşağıdaki bileşenlerden oluşur:
+
+Frontend:
+- Kullanıcı arayüzü web tabanlıdır.
+- Panelde grafikler, filtreler ve rapor ekranları bulunur.
+- React veya Streamlit gibi araçlar kullanılabilir.
+
+Backend:
+- API katmanı Python ile geliştirilebilir.
+- Veri doğrulama, kullanıcı yönetimi ve analiz işlemleri backend tarafında yapılır.
+
+Veritabanı:
+- Zaman serisi verileri için PostgreSQL veya InfluxDB kullanılabilir.
+- Kullanıcı bilgileri, bina bilgileri ve eşik değerleri ilişkisel veritabanında tutulur.
+
+Analiz Katmanı:
+- Python tabanlı veri analizi modülleri kullanılır.
+- Ortalama tüketim, pik tüketim, anomali tespiti ve tasarruf tahmini hesaplanır.
+
+Bildirim Sistemi:
+- E-posta veya panel içi bildirimler kullanılabilir.
+- Kritik eşik aşıldığında ilgili kullanıcıya uyarı gönderilir.
+
+Bu dokümanda belirli bir bulut sağlayıcısı zorunlu tutulmamıştır. Sistem yerel sunucuda veya bulutta çalıştırılabilir.
+
+============================================================
+7. VERİ KAYNAKLARI
+============================================================
+
+Sistem üç ana veri kaynağından yararlanır:
+
+1. Akıllı sayaç verileri:
+   Bina bazında elektrik tüketimi ölçülür. Ölçümler kilowatt-saat cinsinden kaydedilir.
+
+2. Bina bilgileri:
+   Her binanın adı, kullanım türü, kat sayısı ve yaklaşık kullanım saatleri tutulur.
+
+3. Takvim verileri:
+   Hafta sonları, resmi tatiller ve sınav dönemleri gibi özel zamanlar analizde dikkate alınır.
+
+Örneğin sınav haftasında kütüphane tüketiminin artması normal kabul edilebilir. Ancak yaz tatilinde aynı düzeyde tüketim gözlenirse sistem bunu olağan dışı olarak işaretleyebilir.
+
+============================================================
+8. ROLLER VE YETKİLER
+============================================================
+
+Sistemde dört temel kullanıcı rolü vardır:
+
+1. Sistem Yöneticisi:
+   Tüm binaları, kullanıcıları ve sistem ayarlarını yönetebilir.
+
+2. Enerji Yöneticisi:
+   Kampüs genelindeki enerji raporlarını görebilir ve eşik değerleri belirleyebilir.
+
+3. Bina Sorumlusu:
+   Sadece kendi sorumlu olduğu binanın verilerini görebilir.
+
+4. Gözlemci:
+   Raporları görüntüleyebilir ancak ayar değişikliği yapamaz.
+
+Yetkilendirme sistemi güvenlik açısından önemlidir. Her kullanıcının yalnızca görev alanıyla ilgili verilere erişmesi hedeflenmiştir.
+
+============================================================
+9. ANOMALİ TESPİTİ
+============================================================
+
+Anomali tespiti, sistemin en önemli özelliklerinden biridir. Anomali, beklenen enerji tüketiminden anlamlı derecede sapma olmasıdır.
+
+Basit örnekler:
+
+- Gece saat 03:00'te laboratuvar binasında yüksek tüketim görülmesi
+- Hafta sonu kapalı olması gereken idari binada yoğun elektrik kullanımı
+- Bir binanın günlük tüketiminin son 30 gün ortalamasının çok üstüne çıkması
+- Klima sistemlerinin mesai dışında çalışmaya devam etmesi
+
+İlk sürümde anomali tespiti basit eşik değerleri ve ortalama karşılaştırmalarıyla yapılır. Daha gelişmiş sürümlerde makine öğrenmesi tabanlı tahmin modelleri kullanılabilir.
+
+============================================================
+10. ENERJİ TASARRUFU ÖNERİLERİ
+============================================================
+
+Sistem yalnızca veri göstermekle kalmaz, aynı zamanda öneriler de üretir.
+
+Örnek öneriler:
+
+- Mesai saatleri dışında aydınlatma sistemlerini otomatik kapatma
+- Boş sınıflarda klima kullanımını azaltma
+- Laboratuvar cihazlarını gece düşük güç moduna alma
+- Eski aydınlatmaları LED sistemlerle değiştirme
+- Yüksek tüketimli binalarda bakım kontrolü başlatma
+
+Bu öneriler sistemin analiz ettiği verilere ve önceden tanımlanmış kurallara göre üretilir. İlk sürümde öneriler kural tabanlıdır. Gelecekte daha kişiselleştirilmiş öneriler eklenebilir.
+
+============================================================
+11. RAPORLAMA
+============================================================
+
+Raporlama modülü yöneticilerin karar almasını kolaylaştırmak için tasarlanmıştır.
+
+Rapor türleri:
+
+1. Günlük Tüketim Raporu:
+   Bir gün içindeki saatlik tüketimi gösterir.
+
+2. Haftalık Karşılaştırma Raporu:
+   Haftanın günlerine göre tüketimi karşılaştırır.
+
+3. Aylık Maliyet Raporu:
+   Toplam tüketimi ve tahmini maliyeti gösterir.
+
+4. Bina Performans Raporu:
+   Binaları tüketim verimliliğine göre sıralar.
+
+5. Anomali Raporu:
+   Tespit edilen olağan dışı tüketim olaylarını listeler.
+
+Raporlar PDF veya CSV formatında dışa aktarılabilir. PDF rapor yöneticiler için daha okunabilirken, CSV rapor veri analizi yapmak isteyen kullanıcılar için uygundur.
+
+============================================================
+12. PROJE TAKVİMİ
+============================================================
+
+Proje dört haftalık bir geliştirme planına göre tasarlanmıştır.
+
+1. Hafta:
+- Proje gereksinimlerinin netleştirilmesi
+- Örnek veri formatının hazırlanması
+- Temel klasör yapısının oluşturulması
+- Basit veri okuma modülünün yazılması
+
+2. Hafta:
+- Veri işleme ve analiz modülünün geliştirilmesi
+- Bina bazlı tüketim hesaplamalarının yapılması
+- Basit anomali tespit kurallarının eklenmesi
+
+3. Hafta:
+- Streamlit veya web panelinin hazırlanması
+- Grafiklerin ve tabloların eklenmesi
+- Rapor ekranlarının oluşturulması
+
+4. Hafta:
+- Testlerin yapılması
+- README dosyasının düzenlenmesi
+- GitHub reposunun hazırlanması
+- 5 dakikalık final sunumunun hazırlanması
+
+Projenin final tesliminde çalışan demo, GitHub bağlantısı ve kısa sunum beklenmektedir.
+
+============================================================
+13. BAŞARI KRİTERLERİ
+============================================================
+
+Projenin başarılı sayılması için aşağıdaki kriterleri karşılaması beklenir:
+
+- Kullanıcı en az bir bina için enerji tüketim verisi yükleyebilmelidir.
+- Sistem verileri okuyup anlaşılır grafikler oluşturabilmelidir.
+- En az bir basit anomali tespit kuralı çalışmalıdır.
+- Günlük veya haftalık rapor oluşturulabilmelidir.
+- README dosyasında kurulum ve çalıştırma adımları açıkça yazmalıdır.
+- Kod GitHub üzerinde düzenli bir klasör yapısıyla paylaşılmalıdır.
+- Final sunumunda proje amacı, mimari ve demo anlatılmalıdır.
+
+Bu kriterler MVP yani minimum çalışabilir ürün seviyesini ifade eder.
+
+============================================================
+14. SINIRLILIKLAR
+============================================================
+
+İlk sürümde bazı sınırlılıklar vardır:
+
+- Gerçek sensör bağlantısı zorunlu değildir; örnek CSV verileri kullanılabilir.
+- Mobil uygulama bulunmamaktadır.
+- Makine öğrenmesi tabanlı gelişmiş tahmin sistemi ilk sürümde yer almaz.
+- Çok büyük veri setlerinde performans optimizasyonu gerekebilir.
+- Enerji fiyatları sabit varsayılabilir.
+- Karbon salınımı hesapları yaklaşık değerlerle yapılabilir.
+
+Bu sınırlılıklar projenin temel amacını engellemez. İlk hedef, çalışan ve anlaşılır bir prototip oluşturmaktır.
+
+============================================================
+15. GELECEK GELİŞTİRMELER
+============================================================
+
+Gelecekte sisteme şu özellikler eklenebilir:
+
+- Mobil uygulama
+- Makine öğrenmesi ile tüketim tahmini
+- Karbon ayak izi hesaplama
+- Otomatik bakım talebi oluşturma
+- Kampüs haritası üzerinde bina tüketimi gösterme
+- Gerçek zamanlı sensör entegrasyonu
+- Kullanıcıya özel bildirim tercihleri
+- Enerji maliyeti simülasyonu
+- Doğal dil ile rapor sorgulama
+
+Özellikle doğal dil ile rapor sorgulama özelliği, kullanıcıların "Bu ay en çok enerji tüketen bina hangisi?" gibi sorular sorarak veriye erişmesini sağlayabilir.
+
+============================================================
+16. ÖRNEK SENARYO
+============================================================
+
+Bir enerji yöneticisi sisteme giriş yapar. Ana panelde kampüsün toplam günlük tüketimini görür. Sistem, Mühendislik Laboratuvarı binasında gece saatlerinde normalden yüksek tüketim olduğunu belirtir.
+
+Yönetici anomali raporunu açar ve son 7 gün içinde benzer durumun üç kez yaşandığını görür. Teknik bakım ekibine kontrol görevi atanır. Yapılan incelemede bazı cihazların gece kapatılmadığı anlaşılır.
+
+Daha sonra sistem, laboratuvar cihazlarının mesai bitiminde düşük güç moduna alınmasını önerir. Bu öneri uygulandıktan sonra aylık elektrik tüketiminde yüzde 8 oranında azalma görülür.
+
+Bu senaryo, sistemin sadece veri gösteren değil, karar destek sağlayan bir araç olduğunu gösterir.
+
+============================================================
+17. ÖRNEK VERİ ALANLARI
+============================================================
+
+Enerji tüketim verisi aşağıdaki alanlardan oluşabilir:
+
+- tarih
+- saat
+- bina_adi
+- bina_turu
+- tuketim_kwh
+- tahmini_maliyet
+- sicaklik
+- doluluk_orani
+- anomali_durumu
+
+Örnek kayıt:
+
+tarih: 2026-07-03
+saat: 14:00
+bina_adi: Kütüphane
+bina_turu: Akademik
+tuketim_kwh: 245
+tahmini_maliyet: 1837.50
+sicaklik: 34
+doluluk_orani: 72
+anomali_durumu: Hayır
+
+Bu veri alanları sadece örnektir. Gerçek projelerde kurumun ihtiyaçlarına göre değiştirilebilir.
+
+============================================================
+18. GÜVENLİK VE GİZLİLİK
+============================================================
+
+Sistemde kişisel öğrenci verisi tutulması hedeflenmemektedir. Enerji tüketim verileri bina bazında toplanır. Bu nedenle sistemin ana veri odağı bireyler değil, fiziksel alanlardır.
+
+Yine de kullanıcı hesapları için güvenli giriş mekanizması gereklidir. Parolalar düz metin olarak saklanmamalıdır. Kullanıcı rolleri doğru tanımlanmalı ve yetkisiz erişim engellenmelidir.
+
+Rapor dışa aktarma işlemlerinde yalnızca yetkili kullanıcıların dosya indirebilmesi sağlanmalıdır.
+
+============================================================
+19. TEST PLANI
+============================================================
+
+Sistemi test etmek için aşağıdaki kontroller yapılabilir:
+
+1. Dosya yükleme testi:
+   CSV veya örnek veri dosyası sisteme yüklenebiliyor mu?
+
+2. Veri okuma testi:
+   Tarih, saat, bina adı ve tüketim alanları doğru okunuyor mu?
+
+3. Grafik testi:
+   Günlük ve haftalık tüketim grafiklerinde doğru değerler gösteriliyor mu?
+
+4. Anomali testi:
+   Normalden yüksek tüketim verisi girildiğinde sistem uyarı üretiyor mu?
+
+5. Rapor testi:
+   PDF veya CSV rapor dışa aktarılabiliyor mu?
+
+6. Yetki testi:
+   Bina sorumlusu yalnızca kendi binasının verilerini görebiliyor mu?
+
+Bu testler projenin temel fonksiyonlarının çalıştığını göstermek için yeterlidir.
+
+============================================================
+20. SUNUMDA ANLATILACAK NOKTALAR
+============================================================
+
+Final sunumunda şu başlıklar anlatılabilir:
+
+- Kampüslerde enerji tüketimini takip etmenin önemi
+- Projenin amacı ve hedef kullanıcıları
+- Sistemin genel mimarisi
+- Veri toplama, analiz ve raporlama akışı
+- Anomali tespiti örneği
+- Demo ekranı veya örnek çıktı
+- Limitasyonlar ve gelecek geliştirmeler
+
+Sunumun 5 dakikayı aşmaması için detaylı teknik kod açıklamalarından kaçınılmalıdır. Bunun yerine problem, çözüm, demo ve sonuç net biçimde aktarılmalıdır.
+
+============================================================
+21. SIK SORULAN SORULAR
+============================================================
+
+Soru: Bu sistem gerçek sensörlerle çalışmak zorunda mı?
+Cevap: İlk prototipte gerçek sensör zorunlu değildir. Örnek CSV verileriyle sistem test edilebilir.
+
+Soru: Mobil uygulama var mı?
+Cevap: İlk sürümde mobil uygulama yoktur. Sistem web tabanlı panel olarak tasarlanmıştır.
+
+Soru: Anomali tespiti nasıl yapılır?
+Cevap: İlk sürümde basit eşik değerleri ve geçmiş ortalamalar kullanılır.
+
+Soru: Raporlar hangi formatlarda alınabilir?
+Cevap: PDF ve CSV formatlarında rapor dışa aktarımı planlanmıştır.
+
+Soru: Öğrenciler sistemi kullanacak mı?
+Cevap: Öğrenciler ilk sürümde doğrudan yönetici kullanıcı değildir. Ancak ileride öğrenci bilgilendirme paneli eklenebilir.
+
+============================================================
+22. ÖZET
+============================================================
+
+Akıllı Kampüs Enerji Yönetim Sistemi, üniversite kampüslerinde enerji tüketimini izlemek ve optimize etmek için tasarlanmış bir yazılım projesidir. Sistem bina bazlı tüketim verilerini toplar, analiz eder, anomalileri tespit eder ve yöneticilere raporlar sunar.
+
+İlk sürümün temel hedefi çalışan bir prototip oluşturmaktır. Bu prototip; veri yükleme, analiz, görselleştirme, anomali tespiti ve raporlama özelliklerini içermelidir. Proje dört haftalık bir takvimle geliştirilebilir ve finalde GitHub reposu ile 5 dakikalık sunum şeklinde teslim edilebilir.
+
+============================================================
+23. RAG TESTİ İÇİN ÖNERİLEN SORULAR
+============================================================
+
+Bu dokümanı RAG uygulamasında test etmek için aşağıdaki sorular sorulabilir:
+
+1. Bu projenin temel amacı nedir?
+2. Sistemin hedef kullanıcıları kimlerdir?
+3. Anomali tespiti ne anlama gelir?
+4. Projede hangi rapor türleri vardır?
+5. Proje takvimine göre 3. haftada ne yapılacaktır?
+6. İlk sürümün sınırlılıkları nelerdir?
+7. Mobil uygulama ilk sürümde var mı?
+8. Sistem hangi veri kaynaklarını kullanır?
+9. Final sunumunda hangi başlıklar anlatılabilir?
+10. Bu dokümana göre başarı kriterleri nelerdir?
+
+Dokümanda bulunmayan bilgiyi test etmek için şu sorular sorulabilir:
+
+- Projenin bütçesi kaç TL'dir?
+- Proje yöneticisinin adı nedir?
+- Hangi gerçek üniversitede uygulanmıştır?
+- Sistemin resmi web adresi nedir?
+
+Bu soruların doğru cevabı "Bu bilgi yüklenen dokümanlarda bulunamadı." şeklinde olmalıdır.

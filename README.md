@@ -1,144 +1,185 @@
-# Türkçe Local RAG Doküman Asistanı
+# 📚 Türkçe Local RAG Doküman Asistanı
 
-**Turkish Local RAG Document Assistant**
+**Turkish Local RAG Document Assistant** — Foundry Local LLM ile yerel dokümanlarınızdan Türkçe, kaynaklı ve bağlama dayalı cevaplar üreten Streamlit RAG uygulaması.
 
-Foundry Local LLM kullanarak yerel dokümanlardan Türkçe, kaynaklı ve bağlama dayalı cevaplar üreten Streamlit RAG uygulaması.
+---
 
-## Projenin Amacı
+## 🎯 Projenin Amacı
 
-Kullanıcının PDF, TXT veya Markdown belgelerini kendi bilgisayarında işlemesini; belgeler hakkında soru sormasını, özet almasını ve quiz üretmesini sağlar.
+Kullanıcının PDF, TXT veya Markdown belgelerini kendi bilgisayarında işlemesini, belgeler hakkında soru sormasını, özet almasını ve quiz üretmesini sağlar. **Tüm işlem yerel cihazda yapılır — dokümanlar dışarı gönderilmez.**
 
-## RAG Nedir?
+## 🔁 RAG Nedir?
 
-1. **Retrieve:** Soruyla ilgili doküman parçalarını bulur.
-2. **Augment:** Bulunan parçaları model bağlamına ekler.
-3. **Generate:** Model bağlama dayanarak cevap üretir.
+| Adım | Açıklama |
+|------|----------|
+| **Retrieve** | Soruyla ilgili doküman parçalarını bulur. |
+| **Augment** | Bulunan parçaları model bağlamına ekler. |
+| **Generate** | Model bağlama dayanarak cevap üretir. |
 
-## Foundry Local Nedir?
+## 🖥 Foundry Local Nedir?
 
-Foundry Local, desteklenen yapay zekâ modellerini yerel cihazda indirmek, yüklemek ve çalıştırmak için kullanılan Microsoft SDK'sidir.
+Foundry Local, Microsoft SDK'sidir. Desteklenen yapay zekâ modellerini (LLM) yerel cihazda indirmek, yüklemek ve çalıştırmak için kullanılır; çalışma sırasında internete gerek yoktur.
 
-## Özellikler
+## ✨ Özellikler
 
 - PDF, TXT ve Markdown yükleme
-- Doküman okuma ve örtüşmeli chunking
-- TF-IDF ve cosine similarity tabanlı retrieval
-- Foundry Local LLM ile Türkçe cevap
-- Dosya, sayfa, skor ve önizlemeli kaynak gösterimi
-- Doküman Özeti ve Quiz Üret modları
-- Ayarlanabilir `top_k` ve minimum skor
-- Güvenli extractive fallback sistemi
-- `FOUNDRY_MODEL_ALIAS` ile model seçimi
+- Örtüşmeli (overlapping) chunking ile doküman bölme
+- TF-IDF + cosine similarity ile alakalı parçaları bulma
+- Foundry Local LLM ile Türkçe cevap üretimi
+- **Dosya, sayfa, skor ve önizlemeli kaynak gösterimi**
+- **Doküman Özeti** ve **Quiz Üret** modları
+- Ayarlanabilir `top_k` ve minimum benzerlik eşiği
+- **Güvenli extractive fallback sistemi** (model başarısız olursa doğrudan belgeden cevap)
+- `FOUNDRY_MODEL_ALIAS` ortam değişkeni ile model seçimi
 
-## Kullanılan Teknolojiler
+## 🛠 Kullanılan Teknolojiler
 
-- Python 3.11+
-- Streamlit
-- pypdf
-- scikit-learn
-- Foundry Local SDK
+| Teknoloji | Görevi |
+|-----------|--------|
+| Python 3.11+ | Ana dil |
+| Streamlit | Web arayüzü |
+| pypdf | PDF okuma |
+| scikit-learn | TF-IDF vektörleştirme ve cosine similarity |
+| Foundry Local SDK | Yerel LLM yönetimi |
 
-## Sistem Mimarisi
+## 🏗 Sistem Mimarisi
 
 ```text
-Doküman
-→ Loader
-→ Chunker
-→ Retriever
-→ Foundry Local LLM
-→ Cevap + Kaynaklar
+Doküman (PDF/TXT/MD)
+       ↓
+   [Loader] ──> Metin çıkar
+       ↓
+   [Chunker] ──> Örtüşmeli parçalara böl
+       ↓
+   [Retriever (TF-IDF)] ──> İlgili chunkları bul
+       ↓
+   [Foundry Local LLM] ──> Cevap üret (başarısızsa → Fallback)
+       ↓
+   Cevap + Kaynaklar
 ```
 
-## Klasör Yapısı
+## 📁 Klasör Yapısı
 
 ```text
 turkce-local-rag-asistani/
-├── app.py
-├── requirements.txt
-├── README.md
-├── PRESENTATION_OUTLINE.md
-├── test_retrieval.py
+├── app.py                     # Streamlit arayüzü
+├── requirements.txt           # Bağımlılıklar
+├── README.md                  # Bu dosya
+├── PRESENTATION_OUTLINE.md    # Sunum taslağı
+├── test_retrieval.py          # Model gerektirmeyen test
 ├── data/
-│   ├── documents/demo_proje_bilgisi.txt
-│   └── index/
+│   ├── documents/             # Dokümanlar buraya yüklenir
+│   │   └── (kullanıcının aktif yüklemeleri)
+│   ├── backup/                # İndekse alınmayan örnek/yedek belgeler
+│   └── index/                 # İndeks dosyaları (ileri)
 └── src/
     ├── __init__.py
-    ├── document_loader.py
-    ├── chunker.py
-    ├── retriever.py
-    ├── foundry_client.py
-    ├── rag_pipeline.py
-    └── utils.py
+    ├── document_loader.py     # Dosya okuma
+    ├── chunker.py             # Metin bölme
+    ├── retriever.py           # TF-IDF arama
+    ├── foundry_client.py      # Foundry Local SDK yönetimi
+    ├── rag_pipeline.py        # RAG akışı + fallback
+    └── utils.py               # Yardımcı fonksiyonlar
 ```
 
-## Kurulum
+## 📦 Kurulum
+
+Makinenizde **Python 3.11+** yüklü olduğundan emin olun.
 
 ```bash
+# Sanal ortam oluştur
 python3.11 -m venv .venv
+
+# Sanal ortamı aktifleştir
 source .venv/bin/activate
+
+# pip'i güncelle
 pip install --upgrade pip
+
+# Bağımlılıkları yükle
 pip install -r requirements.txt
 ```
 
-İsteğe bağlı model seçimi:
+İsteğe bağlı — kullanılacak modeli seçin (varsayılan: `qwen2.5-0.5b`):
 
 ```bash
-export FOUNDRY_MODEL_ALIAS=qwen2.5-0.5b
+export FOUNDRY_MODEL_ALIAS=qwen2.5-0.5b   # Küçük ve hızlı
+# export FOUNDRY_MODEL_ALIAS=Phi-3.5-mini-instruct  # Daha güçlü
 ```
 
-## Çalıştırma
+## 🚀 Çalıştırma
 
 ```bash
 streamlit run app.py
 ```
 
-## Örnek Kullanım
+Tarayıcınızda `http://localhost:8501` adresinde açılır.
+
+## 📝 Örnek Kullanım
 
 1. Uygulamayı açın.
-2. Bir doküman yükleyin veya hazır demo belgesini kullanın.
-3. **Dokümanları işle** butonuna basın.
-4. Çalışma modunu seçin ve cevabı kaynaklarıyla inceleyin.
+2. Sol menüden kendi PDF, TXT veya Markdown dokümanınızı yükleyin.
+3. **📄 Dokümanları işle** butonuna basın.
+4. Çalışma modunu seçin:
+   - **Soru-Cevap**: Belge hakkında soru sorun.
+   - **Doküman Özeti**: Otomatik özet alın.
+   - **Quiz Üret**: 5 soruluk çoktan seçmeli quiz oluşturun.
+5. Cevabı ve kaynakları inceleyin.
 
-## Örnek Sorular
+## ❓ Örnek Sorular (Soru-Cevap modu)
 
 - Bu projenin amacı nedir?
 - RAG bu projede nasıl kullanılıyor?
 - Foundry Local neden kullanılıyor?
 - Finalde ne teslim edilecek?
 
-## Demo Senaryosu
+## 🎬 Demo Senaryosu
 
-`data/documents/demo_proje_bilgisi.txt` belgesini işleyin. “Bu projenin amacı nedir?” sorusunu sorun; ardından Özet ve Quiz modlarını ve kaynak expanderlarını gösterin.
+1. Sol menüden sunumda kullanılacak tek bir PDF, TXT veya Markdown belgesi yükleyin.
+2. **Dokümanları işle** butonuna basın. Uygulama önceki aktif belgeleri temizler ve yalnızca seçilen dosyayı indeksler.
+3. Belgeye özgü bir soru sorun; yanıtı ve kaynakları gösterin.
+4. **Doküman Özeti** ve **Quiz Üret** modlarını deneyin.
+5. Demo sonunda isterseniz **Yüklenen dokümanları temizle** butonuyla aktif belgeleri kaldırın.
 
-## Fallback Sistemi
+## 🛡 Fallback Sistemi
 
-Uygulama öncelikle Foundry Local LLM kullanır. Model cevabı başarısız, boş, 20 karakterden kısa, hatalı, tekrar eden veya chat template artığı içeren bir çıktıysa retrieved kaynak chunklardan güvenli maddeler oluşturur. Arayüz fallback kullanıldığını açıkça belirtir.
+Uygulama öncelikle **Foundry Local LLM** kullanarak cevap üretir. Model cevabı aşağıdaki durumlardan birini taşıyorsa, güvenli **extractive fallback** devreye girer:
 
-## Retrieval Testi
+- Boş veya çok kısa (<20 karakter)
+- Hata mesajı içeriyor
+- Chat template artıkları (`<|im_start|>`, `<|im_end|>`) barındırıyor
+- Tekrar eden kelime/cümle desenleri
+- Sistem kullanıcı rolü etiketleri (`system:`, `user:`, `assistant:`)
 
-Bu test model indirmeden çalışır:
+Fallback aktif olduğunda, bulunan kaynak chunklardan doğrudan kısa maddeler oluşturulur. **Arayüz fallback kullanıldığını açıkça belirtir:** "Model yanıtı yeterli olmadığı için güvenli doküman tabanlı fallback kullanıldı."
+
+## 🧪 Retrieval Testi
+
+Model indirmeden yalnızca belge yükleme, chunking ve retrieval akışını test eder:
 
 ```bash
 python test_retrieval.py
 ```
 
-## Limitasyonlar
+## ⚠️ Limitasyonlar
 
-- İlk sürüm TF-IDF kullanır; diller arası anlam benzerliğini her zaman yakalayamaz.
-- Model kalitesi seçilen yerel modele bağlıdır.
-- Büyük PDF dosyalarında işlem süresi artabilir.
-- Taranmış PDF'lerde metin çıkarma kalitesi düşük olabilir.
-- `qwen2.5-0.5b` küçük ve hızlıdır ancak her zaman kaliteli cevap üretemeyebilir; bu nedenle fallback vardır.
+| Limitasyon | Açıklama |
+|------------|----------|
+| TF-IDF | Diller arası anlam benzerliğini her zaman yakalayamaz (embedding tabanlı değil) |
+| Model kalitesi | Seçilen yerel modele bağlıdır |
+| Büyük PDF'ler | İşlem süresi uzayabilir |
+| Taranmış PDF'ler | Metin çıkarma kalitesi düşük olabilir |
+| `qwen2.5-0.5b` | Küçük ve hızlıdır ancak her zaman kaliteli cevap üretemeyebilir (fallback bunun için var) |
 
-## Gelecek Geliştirmeler
+## 🔮 Gelecek Geliştirmeler
 
-- Embedding tabanlı vector search
-- Chat geçmişi
-- OCR desteği
-- Daha iyi kaynak gösterimi
-- Çoklu koleksiyon desteği
-- İsteğe bağlı daha güçlü yerel modeller
+- [ ] Embedding tabanlı vector search (daha iyi anlam benzerliği)
+- [ ] Chat geçmişi
+- [ ] OCR desteği (taranmış PDF'ler için)
+- [ ] Gelişmiş kaynak vurgulama
+- [ ] Çoklu koleksiyon desteği
+- [ ] İsteğe bağlı daha güçlü yerel modeller
 
-## Geliştirici
+## 👨‍💻 Geliştirici
 
-**Atilla Çetin**
+**Atilla Çetin** — [GitHub](https://github.com/atillactn12/turkce-local-rag-asistani)

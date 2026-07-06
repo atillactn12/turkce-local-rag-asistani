@@ -14,6 +14,7 @@ from src.utils import format_page_number, save_uploaded_file
 
 PROJECT_ROOT = Path(__file__).resolve().parent
 DOCUMENTS_FOLDER = PROJECT_ROOT / "data" / "documents"
+SUPPORTED_DOCUMENT_EXTENSIONS = {".txt", ".md", ".pdf"}
 EXAMPLE_QUESTIONS = [
     "Bu dokümanın kısa özetini çıkar.",
     "Bu dokümandaki en önemli konular nelerdir?",
@@ -49,6 +50,22 @@ def get_llm_client(model_alias: str) -> FoundryLLMClient:
     return st.session_state.llm_client
 
 
+def clear_uploaded_documents() -> None:
+    """Aktif klasördeki yalnızca desteklenen kullanıcı dokümanlarını temizler."""
+    DOCUMENTS_FOLDER.mkdir(parents=True, exist_ok=True)
+    for file_path in DOCUMENTS_FOLDER.iterdir():
+        if file_path.is_file() and file_path.suffix.lower() in SUPPORTED_DOCUMENT_EXTENSIONS:
+            file_path.unlink()
+
+
+def reset_document_state() -> None:
+    """Doküman ve cevapla ilgili session state değerlerini sıfırlar."""
+    st.session_state.documents = []
+    st.session_state.chunks = []
+    st.session_state.retriever = None
+    st.session_state.last_result = None
+
+
 def process_documents() -> None:
     """Yerel dokümanları yükler, chunklara böler ve indeksler."""
     documents = load_documents_from_folder(str(DOCUMENTS_FOLDER))
@@ -67,33 +84,35 @@ def process_documents() -> None:
 
 def show_sources(sources: list[dict]) -> None:
     """Kaynakları profesyonel expander bileşenlerinde gösterir."""
-    st.subheader("Kullanılan Kaynaklar")
+    st.subheader("📑 Kullanılan Kaynaklar")
     if not sources:
         st.info("Kaynak bulunamadı.")
         return
     for order, source in enumerate(sources, start=1):
         page = format_page_number(source.get("page_number"))
         file_name = source.get("file_name", "Bilinmeyen dosya")
-        with st.expander(f"Kaynak {order} - {file_name} - Sayfa {page}"):
-            st.write(f"**Chunk ID:** {source.get('chunk_id', '-')}")
-            st.write(f"**Dosya adı:** {file_name}")
-            st.write(f"**Sayfa numarası:** {page}")
-            st.write(f"**Benzerlik skoru:** {float(source.get('score', 0.0)):.4f}")
-            st.write("**Chunk önizlemesi:**")
-            st.write(source.get("preview", ""))
+        score = float(source.get("score", 0.0))
+        with st.expander(f"📄 Kaynak {order} — {file_name} — Sayfa {page} (skor: {score:.4f})"):
+            col1, col2 = st.columns(2)
+            with col1:
+                st.markdown(f"**Chunk ID**\n\n{source.get('chunk_id', '-')}")
+                st.markdown(f"**Dosya adı**\n\n{file_name}")
+            with col2:
+                st.markdown(f"**Sayfa numarası**\n\n{page}")
+                st.markdown(f"**Benzerlik skoru**\n\n{score:.4f}")
+            st.markdown("---")
+            st.markdown("**Chunk önizlemesi:**")
+            st.markdown(f"> {source.get('preview', '')}")
 
 
 def automatic_question(mode: str) -> str:
-    """Özet ve quiz modları için dosya adlarını da içeren sorgu oluşturur."""
-    names = sorted({chunk.get("file_name", "") for chunk in st.session_state.chunks})
-    file_hint = ", ".join(name for name in names if name)
+    """Özet ve quiz modları için kullanıcı talimatını oluşturur."""
     if mode == "Doküman Özeti":
-        return f"Bu dokümanı Türkçe olarak kısa, anlaşılır ve maddeler halinde özetle. Dosyalar: {file_hint}"
+        return "Bu dokümanı Türkçe olarak kısa, anlaşılır ve maddeler halinde özetle."
     if mode == "Quiz Üret":
         return (
             "Bu dokümana göre 5 tane Türkçe çoktan seçmeli soru hazırla. "
-            "Her soruda 4 seçenek olsun ve doğru cevabı belirt. "
-            f"Dosyalar: {file_hint}"
+            "Her soruda 4 seçenek olsun ve doğru cevabı belirt."
         )
     return st.session_state.question_text.strip()
 
@@ -108,22 +127,41 @@ def main() -> None:
         "bağlama dayalı cevaplar üretin."
     )
 
+    if st.session_state.retriever is None:
+        st.info("📌 Başlamak için sol menüden doküman yükleyin ve **Dokümanları işle** butonuna tıklayın.")
+
     with st.sidebar:
-        st.header("1. Dokümanlar")
+        st.header("📂 Dokümanlar")
         uploaded_files = st.file_uploader(
             "PDF, TXT veya Markdown dosyası seçin",
             type=["pdf", "txt", "md"],
             accept_multiple_files=True,
         )
-        if st.button("Dokümanları işle", use_container_width=True):
+        if st.button("📄 Dokümanları işle", use_container_width=True):
+            selected_files = uploaded_files or []
+            if not selected_files:
+                st.warning("Lütfen önce yüklenecek dosyaları seçin.")
+            else:
+                try:
+                    # Her işlem yalnızca o anda seçilen dosyaları indeksler.
+                    clear_uploaded_documents()
+                    for uploaded_file in selected_files:
+                        save_uploaded_file(uploaded_file, str(DOCUMENTS_FOLDER))
+                    with st.spinner("Dokümanlar okunuyor ve indeksleniyor..."):
+                        process_documents()
+                    st.success("✅ Doküman indeksi hazırlandı.")
+                except ValueError as error:
+                    st.warning(f"⚠️ {error}")
+                except Exception as error:
+                    st.error(f"❌ Dokümanlar işlenemedi: {error}")
+
+        if st.button("Yüklenen dokümanları temizle", use_container_width=True):
             try:
-                for uploaded_file in uploaded_files or []:
-                    save_uploaded_file(uploaded_file, str(DOCUMENTS_FOLDER))
-                with st.spinner("Dokümanlar okunuyor ve indeksleniyor..."):
-                    process_documents()
-                st.success("Doküman indeksi hazırlandı.")
+                clear_uploaded_documents()
+                reset_document_state()
+                st.success("Yüklenen dokümanlar ve aktif indeks temizlendi.")
             except Exception as error:
-                st.error(f"Dokümanlar işlenemedi: {error}")
+                st.error(f"Dokümanlar temizlenemedi: {error}")
 
         if st.session_state.chunks:
             file_count = len({item.get("file_path") for item in st.session_state.documents})
@@ -134,18 +172,18 @@ def main() -> None:
             st.info("Henüz hazırlanmış bir indeks yok.")
 
         st.divider()
-        st.header("2. Gelişmiş Ayarlar")
-        top_k = st.slider("Kaynak sayısı (top_k)", 1, 8, 5)
-        minimum_score = st.slider("Minimum benzerlik skoru", 0.00, 0.20, 0.03, 0.01)
+        st.header("⚙️ Gelişmiş Ayarlar")
+        top_k = st.slider("Gösterilecek kaynak sayısı (top_k)", 1, 8, 5)
+        minimum_score = st.slider("Minimum benzerlik skoru (eşik)", 0.00, 0.20, 0.03, 0.01)
 
         st.divider()
-        st.header("3. Model Ayarı")
+        st.header("🤖 Model Ayarı")
         model_alias = st.text_input("Model alias", key="model_alias")
-        st.caption("Daha büyük model yazarsanız ilk kullanımda indirme süresi uzayabilir.")
+        st.caption("Daha büyük bir model yazarsanız ilk kullanımda indirme süresi uzayabilir. Varsayılan: qwen2.5-0.5b")
 
         st.divider()
-        st.header("4. Proje Bilgisi")
-        st.caption("Bu uygulama PDF, TXT ve Markdown dosyalarından RAG yöntemiyle cevap üretir.")
+        st.header("ℹ️ Proje Bilgisi")
+        st.caption("Bu uygulama; PDF, TXT ve Markdown dosyalarınızı kullanarak RAG (Retrieval-Augmented Generation) yöntemiyle sorularınızı cevaplar, özet çıkarır ve quiz oluşturur.")
 
     mode = st.radio(
         "Çalışma modu seçin",
@@ -181,13 +219,17 @@ def main() -> None:
                 try:
                     llm_client = get_llm_client(model_alias.strip())
                     mode_top_k = min(8, max(top_k, 6)) if mode != "Soru-Cevap" else top_k
+                    pipeline_mode = {
+                        "Soru-Cevap": "qa",
+                        "Doküman Özeti": "summary",
+                        "Quiz Üret": "quiz",
+                    }[mode]
                     with st.spinner("Model yükleniyor, ilk çalıştırma uzun sürebilir..."):
                         result = answer_question(
                             question, st.session_state.retriever, llm_client,
                             top_k=mode_top_k, minimum_score=minimum_score,
+                            mode=pipeline_mode,
                         )
-                    if mode == "Quiz Üret" and result["answer"] == NOT_FOUND_MESSAGE:
-                        result["answer"] = "Quiz oluşturmak için yüklenen dokümanda yeterli bilgi bulunamadı."
                     st.session_state.last_result = result
                     st.session_state.result_title = result_title
                 except Exception as error:
@@ -196,13 +238,18 @@ def main() -> None:
     result = st.session_state.last_result
     if result:
         st.divider()
-        st.subheader(st.session_state.result_title)
-        st.success(result.get("answer", ""))
+        st.subheader(f"📝 {st.session_state.result_title}")
+        # Display the answer
+        st.markdown(result.get("answer", ""))
+
+        # Fallback / Model source badge — clearly visible
         if result.get("used_fallback"):
-            st.warning("Model yanıtı yeterli olmadığı için güvenli doküman tabanlı fallback kullanıldı.")
+            st.error("🛡️ **Fallback:** Model yanıtı yeterli olmadığı için güvenli doküman tabanlı fallback kullanıldı.")
+        elif result.get("sources") and result.get("answer") != NOT_FOUND_MESSAGE:
+            st.success("✅ Yanıt Foundry Local LLM ile üretildi.")
         else:
-            st.caption("Yanıt Foundry Local LLM ile üretildi.")
-        st.caption(f"Model: {result.get('model_alias', 'Bilinmiyor')}")
+            st.info("ℹ️ İlgili kaynak bulunamadığı için model yanıtı kullanılmadı.")
+        st.caption(f"Kullanılan model: `{result.get('model_alias', 'Bilinmiyor')}`")
         st.divider()
         show_sources(result.get("sources", []))
 
