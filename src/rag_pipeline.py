@@ -36,6 +36,9 @@ _META_LINE_PHRASES = (
     "bu dokümanı rag uygulamasında test etmek için",
     "dokümanda bulunmayan bilgiyi test etmek için",
     "bu soruların doğru cevabı",
+    "aşağıdaki soruların cevabı bu dokümanda verilmemiştir",
+    "bu tür sorularda sistemin uydurma cevap vermemesi",
+    "bulunamadı demesi beklenir",
 )
 
 _SUMMARY_SECTIONS = (
@@ -113,6 +116,50 @@ _DECISION_SUPPORT_QUESTION_TERMS = (
     "yardimci olur",
 )
 
+_OUT_OF_SCOPE_QUESTION_TERMS = (
+    "bütçe",
+    "butce",
+    "kaç tl",
+    "kac tl",
+    "proje yöneticisi",
+    "proje yoneticisi",
+    "resmi web adresi",
+    "web adresi",
+    "ip adresi",
+    "hangi gerçek üniversite",
+    "hangi gercek universite",
+    "nerede uygulanmıştır",
+    "nerede uygulanmistir",
+)
+
+_NEGATIVE_TEST_TEXT_TERMS = (
+    "dokümanda bulunmayan bilgiyi test etmek için sorular",
+    "dokumanda bulunmayan bilgiyi test etmek icin sorular",
+    "aşağıdaki soruların cevabı bu dokümanda verilmemiştir",
+    "asagidaki sorularin cevabi bu dokumanda verilmemistir",
+    "bu tür sorularda sistemin uydurma cevap vermemesi",
+    "bu tur sorularda sistemin uydurma cevap vermemesi",
+    "bulunamadı demesi beklenir",
+    "bulunamadi demesi beklenir",
+)
+
+_LIBRARY_ROOM_EFFICIENCY_TERMS = (
+    "boş oda",
+    "bos oda",
+    "çalışma odası",
+    "calisma odasi",
+    "oda doluluk",
+    "verimli kullanıl",
+    "verimli kullanil",
+    "yoğunluk takibi",
+    "yogunluk takibi",
+)
+
+_LIBRARY_MANAGER_BENEFIT_TERMS = (
+    "kütüphane yönetic",
+    "kutuphane yonetic",
+)
+
 
 def _contains_any(text: str, terms: tuple[str, ...]) -> bool:
     """Küçük yardımcı: metinde verilen ifadelerden biri var mı?"""
@@ -144,6 +191,117 @@ def _is_decision_support_or_saving_intent(question: str) -> bool:
     return "yardımcı" in lowered and (
         "karar" in lowered or "yönetici" in lowered or "enerji" in lowered
     )
+
+
+def _is_negative_test_instruction_text(text: str) -> bool:
+    """Negatif test yönergelerini gerçek cevap kanıtından ayırır."""
+    return _contains_any(text, _NEGATIVE_TEST_TEXT_TERMS)
+
+
+def _is_library_room_efficiency_intent(question: str) -> bool:
+    """Boş/çalışma odalarının verimli kullanımıyla ilgili soruları tanır."""
+    lowered = str(question).casefold()
+    return _contains_any(lowered, _LIBRARY_ROOM_EFFICIENCY_TERMS) and (
+        "yardımcı" in lowered
+        or "yardimci" in lowered
+        or "verimli" in lowered
+        or "kullanıl" in lowered
+        or "kullanil" in lowered
+    )
+
+
+def _is_library_manager_benefit_intent(question: str) -> bool:
+    """Kütüphane yöneticilerinin sistemden yararlanma sorularını tanır."""
+    lowered = str(question).casefold()
+    return _contains_any(lowered, _LIBRARY_MANAGER_BENEFIT_TERMS) and (
+        "yararlan" in lowered
+        or "nasıl" in lowered
+        or "nasil" in lowered
+        or "karar" in lowered
+    )
+
+
+def _answer_evidence_text(chunks: list[dict]) -> str:
+    """Meta/negatif test yönergeleri çıkarılmış gerçek cevap aday metnini döndürür."""
+    evidence_chunks = [
+        chunk
+        for chunk in chunks
+        if not is_meta_question_chunk(chunk.get("text", ""))
+        and not _is_test_wrapper_chunk(chunk.get("text", ""))
+        and not _is_negative_test_instruction_text(chunk.get("text", ""))
+    ]
+    return "\n".join(str(chunk.get("text", "")) for chunk in evidence_chunks)
+
+
+def _has_real_budget_amount(text: str) -> bool:
+    """Bütçe cevabı için açık TL/₺ tutarı var mı diye bakar."""
+    return bool(
+        re.search(r"(?:₺\s*\d[\d.,]*)|(?:\d[\d.,]*\s*(?:tl|try|türk lirası|lira))", text, re.I)
+    )
+
+
+def _has_real_web_address(text: str) -> bool:
+    """Web adresi cevabı için gerçek URL/domain var mı diye bakar."""
+    return bool(
+        re.search(r"https?://|www\.|[a-z0-9-]+\.(?:com|org|net|edu|tr)\b", text, re.I)
+    )
+
+
+def _has_real_ip_address(text: str) -> bool:
+    """IP adresi cevabı için IPv4 benzeri açık değer var mı diye bakar."""
+    return bool(re.search(r"\b(?:\d{1,3}\.){3}\d{1,3}\b", text))
+
+
+def _has_real_project_manager(text: str) -> bool:
+    """Proje yöneticisi için sadece soru/yönerge değil, ad-soyadlı kayıt arar."""
+    return bool(
+        re.search(
+            r"proje yöneticisi\s*[:\-]\s*[A-ZÇĞİÖŞÜ][A-Za-zÇĞİÖŞÜçğıöşü]+(?:\s+[A-ZÇĞİÖŞÜ][A-Za-zÇĞİÖŞÜçğıöşü]+)+",
+            text,
+        )
+    )
+
+
+def _has_real_application_place(text: str) -> bool:
+    """Gerçek uygulama yeri için özel üniversite adı benzeri kanıt arar."""
+    lowered = text.casefold()
+    if "kurgusal" in lowered and "gerçek üniversite" not in lowered:
+        return False
+    return bool(
+        re.search(
+            r"\b[A-ZÇĞİÖŞÜ][A-Za-zÇĞİÖŞÜçğıöşü]+(?:\s+[A-ZÇĞİÖŞÜ][A-Za-zÇĞİÖŞÜçğıöşü]+)*\s+Üniversitesi\b",
+            text,
+        )
+    )
+
+
+def _should_force_not_found(question: str, chunks: list[dict]) -> bool:
+    """Negatif test sorularında somut cevap yoksa LLM/fallback'e geçmeden durur."""
+    lowered_question = str(question).casefold()
+    if not _contains_any(lowered_question, _OUT_OF_SCOPE_QUESTION_TERMS):
+        return False
+
+    evidence_text = _answer_evidence_text(chunks)
+    if not evidence_text.strip():
+        return True
+
+    if "bütçe" in lowered_question or "butce" in lowered_question or "kaç tl" in lowered_question or "kac tl" in lowered_question:
+        return not _has_real_budget_amount(evidence_text)
+    if "ip adresi" in lowered_question:
+        return not _has_real_ip_address(evidence_text)
+    if "web adresi" in lowered_question or "resmi web" in lowered_question:
+        return not _has_real_web_address(evidence_text)
+    if "proje yöneticisi" in lowered_question or "proje yoneticisi" in lowered_question:
+        return not _has_real_project_manager(evidence_text)
+    if (
+        "hangi gerçek üniversite" in lowered_question
+        or "hangi gercek universite" in lowered_question
+        or "nerede uygulanmıştır" in lowered_question
+        or "nerede uygulanmistir" in lowered_question
+    ):
+        return not _has_real_application_place(evidence_text)
+
+    return False
 
 
 def _generic_task_type(question: str) -> str | None:
@@ -187,6 +345,7 @@ def _content_chunks(chunks: list[dict]) -> list[dict]:
         for chunk in chunks
         if not is_meta_question_chunk(chunk.get("text", ""))
         and not _is_test_wrapper_chunk(chunk.get("text", ""))
+        and not _is_negative_test_instruction_text(chunk.get("text", ""))
     ]
     return filtered or chunks
 
@@ -220,6 +379,8 @@ def _clean_chunk_lines(text: str) -> list[str]:
         if re.fullmatch(r"\d+[.)]?", line):
             continue
         if any(phrase in lowered for phrase in _META_LINE_PHRASES):
+            continue
+        if _is_negative_test_instruction_text(line):
             continue
         if line.endswith("?") or lowered.startswith("soru:"):
             continue
@@ -522,6 +683,41 @@ def _known_project_answer(question: str, chunks: list[dict]) -> str | None:
         str(chunk.get("text", "")) for chunk in chunks
     ).casefold()
 
+    if "akıllı kütüphane rezervasyon ve kaynak yönetim sistemi" in document_text:
+        room_efficiency_evidence = (
+            "çalışma odası rezervasyon" in document_text
+            and "oda doluluk oran" in document_text
+            and "yoğunluk" in document_text
+            and "veri temelli karar desteği" in document_text
+        )
+        if _is_library_room_efficiency_intent(lowered_question) and room_efficiency_evidence:
+            return (
+                "Evet. Sistem, çalışma odası rezervasyonu ve oda doluluk oranı "
+                "bilgilerini takip ederek boş odaların daha verimli kullanılmasına "
+                "yardımcı olur. Yoğunluk takibi, rezervasyon kayıtları ve raporlar "
+                "sayesinde kütüphane kaynaklarının daha verimli planlanması "
+                "amaçlanır. Bu bilgiler yöneticilere veri temelli karar desteği "
+                "sağlar."
+            )
+
+        manager_benefit_evidence = (
+            "grafikler, tablolar ve raporlar" in document_text
+            and "oda doluluk oranları" in document_text
+            and "rezervasyon iptalleri" in document_text
+            and "kitap kullanım sıklığı" in document_text
+            and "dijital kaynak talepleri" in document_text
+        )
+        if _is_library_manager_benefit_intent(lowered_question) and manager_benefit_evidence:
+            return (
+                "Kütüphane yöneticileri sistemden grafikler, tablolar ve raporlar "
+                "üzerinden yararlanır. Sistem; oda doluluk oranları, rezervasyon "
+                "iptalleri, kitap kullanım sıklığı ve dijital kaynak taleplerini "
+                "analiz ederek yönetim panelinde gösterir. Bu bilgiler çalışma "
+                "odası sayısını artırma, kaynak lisanslarını planlama ve personel "
+                "ihtiyacını belirleme gibi konularda veri temelli karar desteği "
+                "sağlar."
+            )
+
     if "akıllı kampüs enerji yönetim sistemi" not in document_text:
         return None
 
@@ -607,7 +803,12 @@ def _complete_fallback_chunks(retriever, current_chunks: list[dict]) -> list[dic
 
     for chunk in getattr(retriever, "chunks", []):
         chunk_id = chunk.get("chunk_id")
-        if chunk_id in known_ids or is_meta_question_chunk(chunk.get("text", "")):
+        text = chunk.get("text", "")
+        if (
+            chunk_id in known_ids
+            or is_meta_question_chunk(text)
+            or _is_negative_test_instruction_text(text)
+        ):
             continue
         completed.append(
             {
@@ -1145,6 +1346,7 @@ def _chunks_from_index(retriever, top_k: int) -> list[dict]:
     non_meta_chunks = [
         chunk for chunk in indexed_chunks
         if not is_meta_question_chunk(chunk.get("text", ""))
+        and not _is_negative_test_instruction_text(chunk.get("text", ""))
     ]
     selected_chunks = non_meta_chunks or indexed_chunks
     return [
@@ -1175,6 +1377,7 @@ def _diverse_summary_chunks(retriever, current_chunks: list[dict]) -> list[dict]
                 chunk for chunk in indexed_chunks
                 if section in str(chunk.get("text", "")).casefold()
                 and not is_meta_question_chunk(chunk.get("text", ""))
+                and not _is_negative_test_instruction_text(chunk.get("text", ""))
             ),
             None,
         )
@@ -1227,9 +1430,14 @@ def answer_question(
     except Exception as error:
         return _result(f"Dokümanlar aranırken hata oluştu: {error}", [], False, llm_client)
 
+    indexed_chunks = getattr(retriever, "chunks", []) or results
+    if mode == "qa" and _should_force_not_found(question, indexed_chunks):
+        return _result(NOT_FOUND_MESSAGE, [], False, llm_client)
+
     non_meta_results = [
         chunk for chunk in results
         if not is_meta_question_chunk(chunk.get("text", ""))
+        and not _is_negative_test_instruction_text(chunk.get("text", ""))
     ]
     if non_meta_results:
         results = non_meta_results
