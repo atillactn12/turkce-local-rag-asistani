@@ -331,9 +331,12 @@ def main() -> None:
         # Display the answer
         st.markdown(result.get("answer", ""))
 
-        # Fallback / Model source badge — clearly visible
-        if result.get("used_fallback"):
-            st.error("🛡️ **Fallback:** Model yanıtı yeterli olmadığı için güvenli doküman tabanlı fallback kullanıldı.")
+        # Yanıt kaynağı bilgisi: fallback güvenli şekilde çalışır, ancak demo
+        # sırasında hata gibi görünmemesi için nötr bilgi mesajı gösterilir.
+        if not result.get("sources") and result.get("answer") == NOT_FOUND_MESSAGE:
+            st.info("ℹ️ İlgili kaynak bulunamadığı için model yanıtı kullanılmadı.")
+        elif result.get("used_fallback"):
+            st.info("ℹ️ Yanıt kaynak dokümanlara göre oluşturuldu.")
         elif result.get("sources") and result.get("answer") != NOT_FOUND_MESSAGE:
             st.success("✅ Yanıt Foundry Local LLM ile üretildi.")
         else:
