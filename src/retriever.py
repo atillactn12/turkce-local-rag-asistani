@@ -35,6 +35,7 @@ class SimpleRetriever:
         use_sqlite: bool = True,
         db_path: str = "data/index/rag_index.sqlite",
         retrieval_mode: str = "tfidf",
+        embedding_model_alias: str = "qwen3-embedding-0.6b",
     ) -> None:
         if retrieval_mode not in RETRIEVAL_MODES:
             raise ValueError(f"Desteklenmeyen arama yöntemi: {retrieval_mode}")
@@ -42,6 +43,7 @@ class SimpleRetriever:
         self.use_sqlite = use_sqlite
         self.db_path = db_path
         self.retrieval_mode = retrieval_mode
+        self.embedding_model_alias = embedding_model_alias.strip()
         self.vectorizer = TfidfVectorizer(
             lowercase=True,
             token_pattern=r"(?u)\b\w+\b",
@@ -56,8 +58,11 @@ class SimpleRetriever:
         self.sqlite_ready = False
         self.foundry_embedding_ready = False
         self.foundry_embedding_error = ""
+        self.embedding_available = False
+        self.embedding_status_message = "Embedding henüz hazırlanmadı."
         self.fell_back_to_tfidf = False
         self.last_search_backend = "tfidf"
+        self.active_backend = "tfidf"
         self._index_is_built = False
 
     @staticmethod
@@ -76,8 +81,11 @@ class SimpleRetriever:
         self.sqlite_ready = False
         self.foundry_embedding_ready = False
         self.foundry_embedding_error = ""
+        self.embedding_available = False
+        self.embedding_status_message = "Embedding henüz hazırlanmadı."
         self.fell_back_to_tfidf = False
         self.last_search_backend = "tfidf"
+        self.active_backend = "tfidf"
         self._index_is_built = True
         if not self.chunks:
             return
@@ -127,12 +135,17 @@ class SimpleRetriever:
             self.foundry_embedding_error = (
                 "SQLite hazır olmadığı için Foundry embedding indeksi kurulamadı."
             )
+            self.embedding_status_message = self.foundry_embedding_error
             return
 
-        client = LocalEmbeddingClient("foundry_embedding")
+        client = LocalEmbeddingClient(
+            "foundry_embedding",
+            embedding_model_alias=self.embedding_model_alias,
+        )
         self.foundry_embedding_client = client
         if not client.is_available():
             self.foundry_embedding_error = client.last_error
+            self.embedding_status_message = client.get_status_message()
             return
 
         try:
@@ -145,10 +158,15 @@ class SimpleRetriever:
                     str(chunk.get("chunk_id")), vector, provider
                 )
             self.foundry_embedding_ready = True
+            self.embedding_available = True
             self.foundry_embedding_error = ""
+            self.embedding_status_message = client.get_status_message()
+            self.active_backend = self.retrieval_mode
         except Exception as error:
             self.foundry_embedding_ready = False
+            self.embedding_available = False
             self.foundry_embedding_error = f"Foundry embedding indeksi kurulamadı: {error}"
+            self.embedding_status_message = self.foundry_embedding_error
 
     @staticmethod
     def _rank_results(chunks: list[dict], scores, top_k: int) -> list[dict]:
@@ -240,6 +258,8 @@ class SimpleRetriever:
             )
         except Exception as error:
             self.foundry_embedding_error = f"Foundry embedding araması başarısız: {error}"
+            self.embedding_available = False
+            self.embedding_status_message = self.foundry_embedding_error
             return []
 
     @staticmethod
@@ -300,19 +320,23 @@ class SimpleRetriever:
 
         if self.retrieval_mode == "tfidf":
             self.last_search_backend = tfidf_backend
+            self.active_backend = "tfidf"
             return tfidf_results
 
         embedding_results = self._search_foundry(query, top_k)
         if not embedding_results:
             self.fell_back_to_tfidf = True
             self.last_search_backend = "tfidf_fallback"
+            self.active_backend = "tfidf"
             return tfidf_results
 
         if self.retrieval_mode == "foundry_embedding":
             self.last_search_backend = "foundry_embedding"
+            self.active_backend = "foundry_embedding"
             return embedding_results
 
         self.last_search_backend = "hybrid"
+        self.active_backend = "hybrid"
         return self._merge_hybrid_results(
             tfidf_results, embedding_results, top_k
         )

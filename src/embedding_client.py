@@ -1,7 +1,5 @@
 """TF-IDF ve isteğe bağlı Foundry Local embedding istemcisi."""
 
-import os
-
 from sklearn.feature_extraction.text import TfidfVectorizer
 
 
@@ -9,26 +7,22 @@ class LocalEmbeddingClient:
     """Yerel metin vektörleri üretir.
 
     Güvenli varsayılan sağlayıcı TF-IDF'dir. Foundry sağlayıcısı yalnızca
-    ``FOUNDRY_EMBEDDING_MODEL_ALIAS`` ayarlanmışsa ve belirtilen model daha
-    önce yerel önbelleğe indirilmişse kullanılır. Bu sınıf model indirmez.
+    seçilen model daha önce yerel önbelleğe indirilmişse kullanılır. Bu sınıf
+    model indirmez.
     """
 
-    SUPPORTED_PROVIDERS = {"tfidf_fallback", "foundry_embedding", "hybrid"}
+    SUPPORTED_PROVIDERS = {"tfidf_fallback", "foundry_embedding"}
 
     def __init__(
         self,
         provider: str = "tfidf_fallback",
-        model_alias: str | None = None,
+        embedding_model_alias: str = "qwen3-embedding-0.6b",
     ) -> None:
         if provider not in self.SUPPORTED_PROVIDERS:
             raise ValueError(f"Desteklenmeyen embedding sağlayıcısı: {provider}")
 
         self.provider = provider
-        self.model_alias = (
-            model_alias
-            if model_alias is not None
-            else os.getenv("FOUNDRY_EMBEDDING_MODEL_ALIAS", "")
-        ).strip()
+        self.embedding_model_alias = embedding_model_alias.strip()
         self.last_error = ""
         self.vectorizer = TfidfVectorizer(
             lowercase=True,
@@ -57,22 +51,23 @@ class LocalEmbeddingClient:
             return False
         self._availability_checked = True
 
-        if not self.model_alias:
+        if not self.embedding_model_alias:
             self.last_error = (
-                "FOUNDRY_EMBEDDING_MODEL_ALIAS ayarlı değil; TF-IDF kullanılacak."
+                "Embedding model alias boş; TF-IDF kullanılacak."
             )
             return False
 
         try:
-            from foundry_local_sdk import FoundryLocalManager
+            from foundry_local_sdk import Configuration, FoundryLocalManager
 
             manager = FoundryLocalManager.instance
             if manager is None:
-                self.last_error = (
-                    "Foundry Local yöneticisi henüz başlatılmadı; mevcut LLM "
-                    "yaşam döngüsünü korumak için TF-IDF kullanılacak."
+                # Bu işlem yalnızca SDK yöneticisini başlatır. Model indirme veya
+                # inference yapmaz; aşağıda yalnızca önbellekteki modeller aranır.
+                FoundryLocalManager.initialize(
+                    Configuration(app_name="turkce_local_rag_asistani")
                 )
-                return False
+                manager = FoundryLocalManager.instance
 
             # Güvenlik: katalogdaki modeli indirmek yerine yalnızca daha önce
             # indirilmiş yerel modeller arasında arama yaparız.
@@ -81,7 +76,8 @@ class LocalEmbeddingClient:
                 (
                     item
                     for item in cached_models
-                    if item.alias == self.model_alias or item.id == self.model_alias
+                    if item.alias == self.embedding_model_alias
+                    or item.id == self.embedding_model_alias
                 ),
                 None,
             )
@@ -176,6 +172,16 @@ class LocalEmbeddingClient:
         if self.provider == "tfidf_fallback":
             return True
         return self._initialize_foundry()
+
+    def get_status_message(self) -> str:
+        """Arayüz için sağlayıcının güncel durumunu anlaşılır biçimde döndürür."""
+        if self.provider == "tfidf_fallback":
+            return "TF-IDF embedding hazır."
+        if self._foundry_client is not None:
+            return (
+                f"Foundry embedding hazır: {self.embedding_model_alias}"
+            )
+        return self.last_error or "Foundry embedding henüz hazırlanmadı."
 
     def close(self) -> None:
         """Bu istemcinin yüklediği Foundry modelini güvenle serbest bırakır."""

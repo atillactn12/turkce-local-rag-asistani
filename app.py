@@ -35,6 +35,7 @@ def initialize_session_state() -> None:
         "question_text": "",
         "model_alias": DEFAULT_MODEL_ALIAS,
         "retrieval_mode": "tfidf",
+        "embedding_model_alias": "qwen3-embedding-0.6b",
         "llm_client": None,
         "result_title": "Cevap",
     }
@@ -96,6 +97,7 @@ def process_documents() -> None:
     retriever = SimpleRetriever(
         db_path=str(INDEX_DB_PATH),
         retrieval_mode=st.session_state.retrieval_mode,
+        embedding_model_alias=st.session_state.embedding_model_alias,
     )
     retriever.build_index(chunks)
     st.session_state.documents = documents
@@ -178,8 +180,8 @@ def main() -> None:
                         and not retriever.foundry_embedding_ready
                     ):
                         st.info(
-                            "Embedding desteği hazır olmadığı için TF-IDF "
-                            "araması kullanılacak."
+                            "Embedding kullanılamıyor; TF-IDF yedeği aktif. "
+                            f"{retriever.embedding_status_message}"
                         )
                 except ValueError as error:
                     st.warning(f"⚠️ {error}")
@@ -207,14 +209,22 @@ def main() -> None:
         st.header("⚙️ Gelişmiş Ayarlar")
         retrieval_labels = {
             "tfidf": "TF-IDF (güvenli varsayılan)",
-            "hybrid": "Hybrid: TF-IDF + Embedding (deneysel)",
-            "foundry_embedding": "Embedding only (deneysel)",
+            "foundry_embedding": "Foundry Embedding (semantik, deneysel)",
+            "hybrid": "Hybrid: TF-IDF + Embedding",
         }
         st.selectbox(
             "Arama yöntemi",
             options=list(retrieval_labels),
             format_func=lambda value: retrieval_labels[value],
             key="retrieval_mode",
+        )
+        st.text_input(
+            "Embedding model alias",
+            key="embedding_model_alias",
+            help=(
+                "Foundry Local üzerinde hazır olan embedding model alias "
+                "değerini yazın. Model hazır değilse sistem TF-IDF yedeğine döner."
+            ),
         )
         st.caption(
             "TF-IDF hızlı ve stabil çalışır. Hybrid mod, embedding desteği "
@@ -242,14 +252,27 @@ def main() -> None:
         elif st.session_state.retriever is not None:
             st.caption("SQLite kullanılamadı; TF-IDF fallback hazır.")
         active_retriever = st.session_state.retriever
-        if (
-            active_retriever is not None
-            and active_retriever.retrieval_mode != "tfidf"
-        ):
-            if active_retriever.foundry_embedding_ready:
-                st.success("Foundry embedding araması hazır.")
-            else:
+        if active_retriever is not None:
+            if (
+                active_retriever.retrieval_mode != "tfidf"
+                and (
+                    not active_retriever.embedding_available
+                    or active_retriever.fell_back_to_tfidf
+                )
+            ):
                 st.info("Embedding kullanılamıyor; TF-IDF yedeği aktif.")
+            else:
+                backend_labels = {
+                    "tfidf": "Arama backend'i: TF-IDF",
+                    "foundry_embedding": "Arama backend'i: Foundry Embedding",
+                    "hybrid": "Arama backend'i: Hybrid",
+                }
+                st.caption(
+                    backend_labels.get(
+                        active_retriever.active_backend,
+                        "Arama backend'i: TF-IDF",
+                    )
+                )
 
     mode = st.radio(
         "Çalışma modu seçin",

@@ -51,7 +51,12 @@ class FoundryLLMClient:
         try:
             from foundry_local_sdk import Configuration, FoundryLocalManager
 
-            FoundryLocalManager.initialize(Configuration(app_name="turkce_local_rag_asistani"))
+            # Embedding bileşeni SDK yöneticisini daha önce başlatmış olabilir.
+            # Singleton mevcutsa onu yeniden kullanmak LLM yaşam döngüsünü korur.
+            if FoundryLocalManager.instance is None:
+                FoundryLocalManager.initialize(
+                    Configuration(app_name="turkce_local_rag_asistani")
+                )
             self.manager = FoundryLocalManager.instance
             self.manager.download_and_register_eps()
             self.model = self.manager.catalog.get_model(self.model_alias)

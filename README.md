@@ -77,28 +77,23 @@ modelinin her ortamda bulunduğunu iddia etmez. Gelecekte SDK ve cihaz desteği
 uygun olduğunda TF-IDF vektörleri özel bir Foundry Local embedding modeliyle
 değiştirilebilir.
 
-## 🔀 Hibrit Arama Modu
+## 🔎 Arama Yöntemleri
 
-TF-IDF, kelime bazlı eşleşmeleri hızlı ve kararlı biçimde bulur. Deneysel
-embedding araması ise uygun bir model bulunduğunda anlam bakımından benzer metin
-parçalarını yakalamayı amaçlar. Hibrit mod iki sonuç listesini birleştirir;
-iki yöntemde de bulunan parçalara ek ağırlık verir. Embedding tarafı hazırlanamaz
-veya arama sırasında hata verirse uygulama otomatik olarak TF-IDF sonuçlarını
-kullanır.
+Arayüzde üç arama yöntemi seçilebilir:
 
-Bu sürümde TF-IDF güvenli varsayılan arama yöntemidir. Hybrid mod, Foundry Local embedding desteği uygun olduğunda semantik aramayı TF-IDF ile birleştirmek için deneysel olarak tasarlanmıştır.
+1. **TF-IDF:** Hızlı, kelime bazlı ve güvenli varsayılan yöntemdir.
+2. **Foundry Embedding:** `qwen3-embedding-0.6b` gibi uyumlu bir embedding
+   modeli önceden Foundry Local önbelleğinde hazırsa anlam bazlı arama yapar.
+3. **Hybrid:** TF-IDF ve embedding sonuçlarını birleştirir. Her iki yöntemde de
+   bulunan parçalara ek ağırlık vererek kelime ve anlam eşleşmesini birlikte
+   kullanır.
 
-Foundry embedding kullanımı için modelin önceden yerel önbelleğe indirilmiş olması
-ve alias değerinin açıkça belirtilmesi gerekir:
+Varsayılan arama yöntemi TF-IDF’tir. Foundry Embedding ve Hybrid modları, ilgili embedding modeli Foundry Local üzerinde hazır olduğunda semantik arama için kullanılabilir. Embedding kullanılamazsa sistem otomatik olarak TF-IDF yedeğine döner.
 
-```bash
-export FOUNDRY_EMBEDDING_MODEL_ALIAS=<yerel-embedding-model-alias>
-```
-
-Uygulama embedding modeli indirmez. Alias belirtilmezse, Foundry Local yöneticisi
-henüz başlatılmamışsa, model önbellekte değilse veya model embedding yeteneğine
-sahip değilse güvenli TF-IDF araması kullanılır. Mevcut LLM yaşam döngüsünü
-korumak için embedding bileşeni Foundry yöneticisini kendiliğinden başlatmaz.
+Embedding model alias değeri gelişmiş ayarlardan seçilebilir. Varsayılan değer
+`qwen3-embedding-0.6b` şeklindedir. Uygulama embedding modeli indirmez; alias boşsa,
+model önbellekte değilse, SDK uygun değilse veya embedding çağrısı hata verirse
+çalışmaya TF-IDF ile devam eder.
 
 ## 📁 Klasör Yapısı
 

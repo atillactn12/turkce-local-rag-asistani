@@ -54,6 +54,15 @@ Doküman (PDF/TXT/MD)
 
 **🗣 Konuşma notu:** "Doküman parçaları ve arama vektörleri önce SQLite tabanlı yerel indexe kaydedilir. Arama katmanı hibrit çalışacak şekilde tasarlanmıştır: TF-IDF kelime bazlı eşleşmeleri, desteklenirse embedding araması anlam bazlı eşleşmeleri yakalar. Embedding kullanılamazsa sistem TF-IDF yedeğiyle stabil kalır. Foundry Local LLM yalnızca bulunan bağlam üzerinden cevap üretir."
 
+**Arama katmanındaki seçenekler:**
+
+1. **TF-IDF** — hızlı ve kelime bazlı güvenli varsayılan
+2. **Foundry Embedding** — model hazırsa anlam bazlı arama
+3. **Hybrid** — kelime ve anlam bazlı sonuçların birleşimi
+
+Embedding modeli hazır değilse Foundry Embedding ve Hybrid modları güvenli
+şekilde TF-IDF yedeğine döner.
+
 ---
 
 ## Slayt 5 — 🛠 Kullanılan Teknolojiler (30 sn)
