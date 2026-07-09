@@ -1,149 +1,164 @@
 # 📚 Türkçe Local RAG Doküman Asistanı
 
-Foundry Local büyük dil modeliyle yerel dokümanlarınızdan Türkçe, kaynaklı ve bağlama dayalı cevaplar üreten Streamlit tabanlı RAG uygulaması.
+Türkçe Local RAG Doküman Asistanı; PDF, TXT ve Markdown dokümanlarından Türkçe soru-cevap, özet ve quiz üretebilen yerel bir Streamlit uygulamasıdır. Proje; SQLite tabanlı yerel indeks, TF-IDF retrieval, isteğe bağlı Foundry Embedding, Hybrid retrieval ve Foundry Local LLM bileşenlerini birlikte kullanır.
+
+Bu proje Microsoft Summer School / Foundry Local RAG projesi kapsamında geliştirilmiştir.
 
 ---
 
 ## 🎯 Projenin Amacı
 
-Kullanıcının PDF, TXT veya Markdown belgelerini kendi bilgisayarında işlemesini, belgeler hakkında soru sormasını, özet almasını ve quiz üretmesini sağlar. **Tüm işlem yerel cihazda yapılır — dokümanlar dışarı gönderilmez.**
+Amaç, kullanıcının yerel dokümanlarını kendi bilgisayarında işlemesini ve bu dokümanlara dayalı Türkçe cevaplar üretmesini sağlamaktır. Uygulama, dokümanları küçük parçalara ayırır, ilgili parçaları bulur, kaynakları gösterir ve gerekirse güvenli doküman tabanlı fallback cevabı üretir.
 
-## 🔁 RAG Nedir?
+## ✨ Ana Özellikler
 
-| Adım | Açıklama |
-|------|----------|
-| **Bilgiyi bulma** | Soruyla ilgili doküman parçalarını bulur. |
-| **Bağlamı zenginleştirme** | Bulunan parçaları model bağlamına ekler. |
-| **Cevap üretme** | Modelin yalnızca sağlanan bağlama dayanarak cevap üretmesini sağlar. |
+- PDF, TXT ve Markdown dosyası yükleme
+- Türkçe soru-cevap
+- Doküman özeti modu
+- Quiz üretme modu
+- Kaynak gösterimi: dosya adı, sayfa numarası, skor ve chunk önizlemesi
+- SQLite tabanlı yerel indeks
+- TF-IDF retrieval
+- Foundry Embedding retrieval
+- Hybrid retrieval: TF-IDF + Foundry Embedding
+- Güvenli doküman tabanlı fallback cevap sistemi
+- Kapsam dışı soru kontrolü
 
-## 🖥 Foundry Local Nedir?
+## 🔎 Arama Modları
 
-Foundry Local, Microsoft tarafından sunulan bir yerel yapay zekâ geliştirme kitidir. Desteklenen büyük dil modellerini yerel cihazda indirmek, yüklemek ve çalıştırmak için kullanılır; model hazırlandıktan sonra cevap üretimi yerel cihazda gerçekleşir.
+Uygulamada üç arama modu bulunur.
 
-## ✨ Özellikler
+### 1. TF-IDF
 
-- PDF, TXT ve Markdown yükleme
-- Dokümanları örtüşmeli metin parçalarına ayırma
-- Metin parçalarını ve vektörleri yerel SQLite dizininde saklama
-- TF-IDF vektörleri ve kosinüs benzerliği ile alakalı parçaları bulma
-- İsteğe bağlı, deneysel TF-IDF + Foundry embedding hibrit araması
-- Foundry Local LLM ile Türkçe cevap üretimi
-- **Dosya, sayfa, skor ve önizlemeli kaynak gösterimi**
-- **Doküman Özeti** ve **Quiz Üret** modları
-- Ayarlanabilir `top_k` ve minimum benzerlik eşiği
-- **Güvenli doküman tabanlı yedek cevap sistemi** (model başarısız olursa doğrudan belgeden cevap)
-- `FOUNDRY_MODEL_ALIAS` ortam değişkeni ile model seçimi
+TF-IDF hızlı ve stabil varsayılan arama modudur. Kelime ve vektör benzerliği mantığıyla soruya en yakın doküman parçalarını bulur. Embedding modeli gerektirmez, bu nedenle demo ve temel kullanım için güvenli seçenektir.
 
-## 🛠 Kullanılan Teknolojiler
+### 2. Foundry Embedding
 
-| Teknoloji | Görevi |
-|-----------|--------|
-| Python 3.11+ | Ana dil |
-| Streamlit | Tarayıcı tabanlı kullanıcı arayüzü |
-| pypdf | PDF okuma |
-| scikit-learn | TF-IDF vektörleştirme ve kosinüs benzerliği |
-| SQLite | Metin parçalarını ve yerel arama vektörlerini kalıcı olarak saklama |
-| Foundry Local SDK | Yerel büyük dil modeli ve deneysel embedding desteği |
+Foundry Embedding modu, `qwen3-embedding-0.6b` modeli hazır olduğunda semantik arama yapar. Bu mod 1024 boyutlu embedding vektörleri üretir ve vektörleri SQLite içinde `foundry_embedding` provider adıyla saklar.
 
-## 🏗 Sistem Mimarisi
+Bu modun çalışması için embedding modelinin Foundry Local üzerinde yerel olarak mevcut olması gerekir. Başka bir makinede model daha önce indirilmemişse ayrıca hazırlanması gerekebilir.
+
+### 3. Hybrid
+
+Hybrid mod, TF-IDF sonuçları ile Foundry Embedding sonuçlarını birleştirir. Böylece hem kelime eşleşmesi hem de anlam benzerliği birlikte kullanılır. Embedding kullanılamazsa sistem güvenli şekilde TF-IDF yedeğine döner.
+
+## 🗃 SQLite Yerel İndeks
+
+Doküman parçaları ve vektör kayıtları yerel SQLite dosyasında saklanır:
 
 ```text
-Doküman (PDF/TXT/MD)
-       ↓
-   [Doküman Yükleyici] ──> Metni çıkar
-       ↓
-   [Metin Bölücü] ──> Örtüşmeli parçalara böl
-       ↓
-   [SQLite Yerel Dizin] ──> Parçaları ve vektörleri sakla
-       ↓
-   [TF-IDF / Deneysel Hibrit Arama] ──> İlgili parçaları bul
-       ↓
-   [Foundry Local LLM] ──> Yalnızca bulunan bağlamdan cevap üret
-       ↓                         ↓ başarısızsa
-   Cevap + Kaynaklar <── [Güvenli Yedek Cevap]
+data/index/rag_index.sqlite
 ```
 
-## 🗃 SQLite ve Vektör Dizini
+Dokümanlar işlendiğinde SQLite indeks otomatik oluşturulur. Aynı indeks içinde farklı vektör sağlayıcıları saklanabilir:
 
-Doküman parçaları ve yerel arama vektörleri `data/index/rag_index.sqlite`
-dosyasında saklanır. Arama bileşeni önce SQLite'taki vektörler üzerinde kosinüs
-benzerliği araması yapar. SQLite veya vektör araması kullanılamazsa mevcut bellek
-içi TF-IDF araması otomatik olarak güvenli yedek görevi görür.
+```text
+tfidf_fallback
+foundry_embedding
+```
 
-Bu MVP sürümünde güvenilirlik ve demo stabilitesi için TF-IDF tabanlı yerel vektörler kullanılmıştır. Mimari, ileride Foundry Local embedding modeliyle değiştirilebilecek şekilde tasarlanmıştır.
+SQLite bağlantıları kısa ömürlü açılıp kapatılacak şekilde tasarlanmıştır. Bu yaklaşım Streamlit rerun/thread davranışında SQLite bağlantı hatalarını azaltır.
 
-Foundry Local büyük dil modeli yalnızca cevap üretiminde kullanılır. Proje, Foundry embedding
-modelinin her ortamda bulunduğunu iddia etmez. Gelecekte SDK ve cihaz desteği
-uygun olduğunda TF-IDF vektörleri özel bir Foundry Local embedding modeliyle
-değiştirilebilir.
+## 🧠 Foundry Local Kullanımı
 
-## 🔎 Arama Yöntemleri
+Varsayılan yerel LLM modeli:
 
-Arayüzde üç arama yöntemi seçilebilir:
+```text
+qwen2.5-0.5b
+```
 
-1. **TF-IDF:** Hızlı, kelime bazlı ve güvenli varsayılan yöntemdir.
-2. **Foundry Embedding:** `qwen3-embedding-0.6b` gibi uyumlu bir embedding
-   modeli önceden Foundry Local önbelleğinde hazırsa anlam bazlı arama yapar.
-3. **Hybrid:** TF-IDF ve embedding sonuçlarını birleştirir. Her iki yöntemde de
-   bulunan parçalara ek ağırlık vererek kelime ve anlam eşleşmesini birlikte
-   kullanır.
+Embedding modu için kullanılan model alias:
 
-Varsayılan arama yöntemi TF-IDF’tir. Foundry Embedding ve Hybrid modları, ilgili embedding modeli Foundry Local üzerinde hazır olduğunda semantik arama için kullanılabilir. Embedding kullanılamazsa sistem otomatik olarak TF-IDF yedeğine döner.
+```text
+qwen3-embedding-0.6b
+```
 
-Embedding model alias değeri gelişmiş ayarlardan seçilebilir. Varsayılan değer
-`qwen3-embedding-0.6b` şeklindedir. Uygulama embedding modeli indirmez; alias boşsa,
-model önbellekte değilse, SDK uygun değilse veya embedding çağrısı hata verirse
-çalışmaya TF-IDF ile devam eder.
+`qwen2.5-0.5b` küçük ve hızlı bir yerel modeldir. Küçük modeller bazı durumlarda zayıf cevap üretebilir; bu yüzden uygulamada güvenli fallback sistemi vardır.
+
+Önemli not: Bu proje, `qwen3-embedding-0.6b` modelinin her makinede otomatik olarak hazır olduğunu iddia etmez. Foundry Embedding veya Hybrid modunun semantik kısmı için modelin ilgili cihazda Foundry Local tarafından erişilebilir olması gerekir.
+
+## 🛡 Güvenli Fallback Sistemi
+
+Uygulama önce Foundry Local LLM ile cevap üretmeyi dener. Model cevabı boş, hatalı, çok kısa, tekrarlı veya chat template artığı içeriyorsa güvenli doküman tabanlı fallback devreye girer.
+
+Fallback cevabı, bulunan doküman parçalarından doğrudan oluşturulur. Bu yaklaşım hallucination riskini azaltır.
+
+Arayüzde fallback durumu kırmızı hata gibi gösterilmez. Nötr bilgi mesajı kullanılır:
+
+```text
+Yanıt kaynak dokümanlara göre oluşturuldu.
+```
+
+## 🚫 Kapsam Dışı Soru Davranışı
+
+Cevap yüklenen dokümanlarda yoksa sistem şu cevabı döndürmelidir:
+
+```text
+Bu bilgi yüklenen dokümanlarda bulunamadı.
+```
+
+Örneğin dokümanda bütçe, IP adresi, resmi web adresi veya proje yöneticisi gibi bilgiler yoksa sistem bu bilgileri uydurmaz. Negatif test bölümlerindeki “bu soru dokümanda yoktur” tarzı satırlar gerçek cevap olarak kabul edilmez.
+
+## 🏗 Proje Mimarisi
+
+```text
+Document Upload
+      ↓
+Loader
+      ↓
+Chunker
+      ↓
+SQLite Local Index
+      ↓
+TF-IDF / Foundry Embedding / Hybrid Retrieval
+      ↓
+Foundry Local LLM
+      ↓
+Answer + Sources
+      ↓
+Safe Fallback if needed
+```
 
 ## 📁 Klasör Yapısı
 
 ```text
 turkce-local-rag-asistani/
-├── app.py                     # Streamlit arayüzü
-├── requirements.txt           # Bağımlılıklar
-├── README.md                  # Bu dosya
-├── PRESENTATION_OUTLINE.md    # Sunum taslağı
-├── test_retrieval.py          # Model gerektirmeyen test
+├── app.py
+├── requirements.txt
+├── README.md
+├── PRESENTATION_OUTLINE.md
+├── test_retrieval.py
 ├── data/
-│   ├── documents/             # Dokümanlar buraya yüklenir
-│   │   └── (kullanıcının aktif yüklemeleri)
-│   ├── backup/                # İndekse alınmayan örnek/yedek belgeler
-│   └── index/                 # SQLite yerel dizini
+│   ├── documents/
+│   └── index/
 └── src/
-    ├── __init__.py
-    ├── document_loader.py     # Dosya okuma
-    ├── chunker.py             # Metin bölme
-    ├── embedding_client.py    # İndirmesiz yerel vektör üretimi
-    ├── vector_store.py        # SQLite chunk / vektör deposu
-    ├── retriever.py           # SQLite vektör araması + TF-IDF yedeği
-    ├── foundry_client.py      # Foundry Local SDK yönetimi
-    ├── rag_pipeline.py        # RAG akışı + güvenli yedek cevap
-    └── utils.py               # Yardımcı fonksiyonlar
+    ├── document_loader.py
+    ├── chunker.py
+    ├── retriever.py
+    ├── embedding_client.py
+    ├── vector_store.py
+    ├── foundry_client.py
+    ├── rag_pipeline.py
+    └── utils.py
 ```
+
+## 🛠 Kullanılan Teknolojiler
+
+| Teknoloji | Görevi |
+|---|---|
+| Python 3.11+ | Ana programlama dili |
+| Streamlit | Web arayüzü |
+| pypdf | PDF metni okuma |
+| scikit-learn | TF-IDF ve cosine similarity |
+| SQLite | Yerel chunk ve vektör indeksi |
+| Foundry Local SDK | Yerel LLM ve embedding entegrasyonu |
 
 ## 📦 Kurulum
 
-Makinenizde **Python 3.11+** yüklü olduğundan emin olun.
-
 ```bash
-# Sanal ortam oluştur
-python3.11 -m venv .venv
-
-# Sanal ortamı aktifleştir
+python3 -m venv .venv
 source .venv/bin/activate
-
-# pip'i güncelle
-pip install --upgrade pip
-
-# Bağımlılıkları yükle
 pip install -r requirements.txt
-```
-
-İsteğe bağlı — kullanılacak modeli seçin (varsayılan: `qwen2.5-0.5b`):
-
-```bash
-export FOUNDRY_MODEL_ALIAS=qwen2.5-0.5b   # Küçük ve hızlı
-# export FOUNDRY_MODEL_ALIAS=Phi-3.5-mini-instruct  # Daha güçlü
 ```
 
 ## 🚀 Çalıştırma
@@ -152,77 +167,49 @@ export FOUNDRY_MODEL_ALIAS=qwen2.5-0.5b   # Küçük ve hızlı
 streamlit run app.py
 ```
 
-Tarayıcınızda `http://localhost:8501` adresinde açılır.
+Uygulama açıldıktan sonra:
 
-## 📝 Örnek Kullanım
+1. Sol menüden PDF, TXT veya Markdown dosyası yükleyin.
+2. **Dokümanları işle** butonuna basın.
+3. Arama modunu seçin: TF-IDF, Foundry Embedding veya Hybrid.
+4. Soru-Cevap, Doküman Özeti veya Quiz Üret modunu kullanın.
+5. Cevapla birlikte gösterilen kaynakları inceleyin.
 
-1. Uygulamayı açın.
-2. Sol menüden kendi PDF, TXT veya Markdown dokümanınızı yükleyin.
-3. **📄 Dokümanları işle** butonuna basın.
-4. Çalışma modunu seçin:
-   - **Soru-Cevap**: Belge hakkında soru sorun.
-   - **Doküman Özeti**: Otomatik özet alın.
-   - **Quiz Üret**: 5 soruluk çoktan seçmeli quiz oluşturun.
-5. Cevabı ve kaynakları inceleyin.
-
-## ❓ Örnek Sorular (Soru-Cevap modu)
-
-- Bu projenin amacı nedir?
-- RAG bu projede nasıl kullanılıyor?
-- Foundry Local neden kullanılıyor?
-- Finalde ne teslim edilecek?
-
-## 🎬 Gösterim Senaryosu
-
-1. Sol menüden sunumda kullanılacak tek bir PDF, TXT veya Markdown belgesi yükleyin.
-2. **Dokümanları işle** butonuna basın. Uygulama önceki aktif belgeleri temizler ve yalnızca seçilen dosyayı indeksler.
-3. Belgeye özgü bir soru sorun; yanıtı ve kaynakları gösterin.
-4. **Doküman Özeti** ve **Quiz Üret** modlarını deneyin.
-5. Gösterim sonunda isterseniz **Yüklenen dokümanları temizle** butonuyla aktif belgeleri kaldırın.
-
-## 🛡 Güvenli Yedek Cevap Sistemi
-
-Uygulama öncelikle **Foundry Local büyük dil modelini** kullanarak cevap üretir. Model cevabı aşağıdaki durumlardan birini taşıyorsa güvenli, doküman tabanlı yedek cevap devreye girer:
-
-- Boş veya çok kısa (<20 karakter)
-- Hata mesajı içeriyor
-- Sohbet şablonu artıkları (`<|im_start|>`, `<|im_end|>`) barındırıyor
-- Tekrar eden kelime/cümle desenleri
-- Sistem kullanıcı rolü etiketleri (`system:`, `user:`, `assistant:`)
-
-Yedek cevap aktif olduğunda bulunan kaynak parçalarından doğrudan kısa maddeler oluşturulur. Arayüz, bu yöntemin kullanıldığını açıkça belirtir.
-
-## 🧪 Testler
-
-Önce Python dosyalarının derlenebilir olduğunu kontrol edin, ardından model
-indirmeden belge yükleme, metin bölme, SQLite dizini ve ilgili parçaları bulma
-akışını test edin:
+## 🧪 Test Komutları
 
 ```bash
-python -m compileall app.py src test_retrieval.py
-python test_retrieval.py
+.venv/bin/python -m compileall app.py src test_retrieval.py
+.venv/bin/python test_retrieval.py
+sqlite3 data/index/rag_index.sqlite "SELECT provider, COUNT(*) FROM embeddings GROUP BY provider;"
 ```
+
+Hybrid veya Foundry Embedding ile indeks oluşturulduktan sonra beklenen provider çıktısı şu yapıda olur:
+
+```text
+tfidf_fallback|...
+foundry_embedding|...
+```
+
+Sayılar yüklenen dokümana ve oluşan chunk sayısına göre değişebilir.
 
 ## ⚠️ Limitasyonlar
 
-| Limitasyon | Açıklama |
-|------------|----------|
-| TF-IDF vektörleri | Kelime eşleşmesine dayanır; özel bir semantik embedding modeli kadar güçlü değildir |
-| Deneysel embedding | Yalnızca uyumlu ve önceden indirilmiş Foundry Local embedding modeliyle etkinleşir |
-| Model kalitesi | Seçilen yerel modele bağlıdır |
-| Büyük PDF'ler | İşlem süresi uzayabilir |
-| Taranmış PDF'ler | Metin çıkarma kalitesi düşük olabilir |
-| `qwen2.5-0.5b` | Küçük ve hızlıdır ancak her zaman kaliteli cevap üretemeyebilir (güvenli yedek cevap bunun için vardır) |
+- Foundry Embedding modu için `qwen3-embedding-0.6b` modelinin yerel Foundry Local ortamında hazır olması gerekir.
+- Embedding modeli yoksa sistem TF-IDF fallback ile çalışmaya devam eder.
+- Küçük yerel LLM modelleri bazı cevaplarda yetersiz kalabilir; bu durumda güvenli doküman tabanlı fallback kullanılır.
+- SQLite indeks yerel olarak oluşturulur; yeni doküman yüklediğinizde indeksin yeniden oluşturulması gerekir.
+- Taranmış PDF dosyalarında metin çıkarma kalitesi düşük olabilir.
 
 ## 🔮 Gelecek Geliştirmeler
 
-- [ ] Daha geniş Foundry Local embedding model ve cihaz desteği
-- [ ] Sohbet geçmişi
-- [ ] OCR desteği (taranmış PDF'ler için)
-- [ ] Gelişmiş kaynak vurgulama
-- [ ] Çoklu koleksiyon desteği
-- [ ] İsteğe bağlı daha güçlü yerel modeller
+- OCR desteği
+- Çoklu doküman koleksiyonları
+- Sohbet geçmişi
+- Daha gelişmiş kaynak vurgulama
+- Daha güçlü yerel LLM seçenekleri
+- Foundry Local embedding model seçeneklerinin genişletilmesi
 
 ## 👨‍💻 Geliştirici
 
-**Atilla Çetin** — [GitHub](https://github.com/atillactn12/turkce-local-rag-asistani)
+**Atilla Çetin**  
+GitHub: https://github.com/atillactn12/turkce-local-rag-asistani

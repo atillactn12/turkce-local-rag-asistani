@@ -5,118 +5,159 @@
 | Konu | İçerik |
 |------|--------|
 | **Ne?** | Yerel dokümanlardan Türkçe soru-cevap, özet ve quiz üreten RAG uygulaması. |
-| **Nasıl?** | Python + Streamlit + Foundry Local (Microsoft yerel LLM SDK'sı) |
+| **Nasıl?** | Python + Streamlit + SQLite + TF-IDF + Foundry Local |
 | **Geliştirici** | Atilla Çetin |
 
-**🗣 Konuşma notu:** Projenin adını ve temel amacını 20 saniyede tanıt. "Foundry Local sayesinde tüm işlem bilgisayarınızda döner, dokümanlar dışarı çıkmaz."
+**Konuşma notu:** Projenin yerel çalıştığını, dokümanların dış servise gönderilmediğini ve Türkçe cevap üretmeye odaklandığını vurgula.
 
 ---
 
 ## Slayt 2 — ❓ Problem (30 sn)
 
-- Uzun dokümanlarda doğru bilgiyi bulmak **zaman alır**.
-- Genel sohbet modelleri (ChatGPT vb.) belgeye dayanmadan **bilgi uydurabilir (hallucination)**.
-- Özel/kişisel dokümanların **dış servislere gönderilmesi güvenlik riski** oluşturur.
+- Uzun dokümanlarda doğru bilgiyi hızlı bulmak zordur.
+- Genel sohbet modelleri belgeye dayanmadan bilgi uydurabilir.
+- Özel dokümanların dış servislere gönderilmesi güvenlik riski oluşturabilir.
+- Demo sırasında sistemin stabil ve açıklanabilir olması gerekir.
 
-**🗣 Konuşma notu:** Bir öğrencinin uzun ders dokümanında bilgi aramasını örnek ver. "Şimdi uygulamanın bu sorunu nasıl çözdüğüne bakalım."
-
----
-
-## Slayt 3 — ✅ Çözüm (30 sn)
-
-| Özellik | Açıklama |
-|---------|----------|
-| 📂 Yükleme | PDF, TXT ve Markdown dosyalarını yükle |
-| ❓ Soru-Cevap | Dokümana dayalı Türkçe cevaplar |
-| 📝 Doküman Özeti | Otomatik madde madde özet |
-| 📋 Quiz Üret | 5 soruluk çoktan seçmeli test |
-| 📄 Kaynak gösterimi | Cevabın hangi doküman/sayfadan geldiğini göster |
-
-**🗣 Konuşma notu:** "Uygulama yalnızca dokümanda bulduğu bağlamı kullanır — eğer model başarısız olursa fallback devreye girer."
+**Konuşma notu:** “Bu proje, cevabı yalnızca yüklenen dokümanlardan bulmaya çalışan yerel bir RAG asistanıdır.”
 
 ---
 
-## Slayt 4 — 🏗 RAG Mimarisi (1 dk)
+## Slayt 3 — ✅ Çözüm ve Özellikler (40 sn)
+
+- PDF, TXT ve Markdown yükleme
+- Türkçe soru-cevap
+- Doküman özeti
+- Quiz üretme
+- Kaynak gösterimi: dosya, sayfa, skor ve chunk önizlemesi
+- Güvenli fallback cevap sistemi
+- Kapsam dışı sorularda “Bu bilgi yüklenen dokümanlarda bulunamadı.” cevabı
+
+**Konuşma notu:** Cevapların altında kaynak gösteriminin demo için en güçlü kanıt olduğunu söyle.
+
+---
+
+## Slayt 4 — 🏗 Mimari (1 dk)
 
 ```text
-Doküman (PDF/TXT/MD)
-       ↓
-   [Böl: Chunker]
-       ↓
-   [Sakla: SQLite Yerel Index]
-       ↓
-   [Bul: TF-IDF / Deneysel Hibrit Arama]
-       ↓
-   [Üret: Foundry Local LLM  ← başarısızsa → Fallback]
-       ↓
-   Cevap + Kaynak Listesi
+Document Upload
+      ↓
+Loader
+      ↓
+Chunker
+      ↓
+SQLite Local Index
+      ↓
+TF-IDF / Foundry Embedding / Hybrid Retrieval
+      ↓
+Foundry Local LLM
+      ↓
+Answer + Sources
+      ↓
+Safe Fallback if needed
 ```
 
-**🗣 Konuşma notu:** "Doküman parçaları ve arama vektörleri önce SQLite tabanlı yerel indexe kaydedilir. Arama katmanı hibrit çalışacak şekilde tasarlanmıştır: TF-IDF kelime bazlı eşleşmeleri, desteklenirse embedding araması anlam bazlı eşleşmeleri yakalar. Embedding kullanılamazsa sistem TF-IDF yedeğiyle stabil kalır. Foundry Local LLM yalnızca bulunan bağlam üzerinden cevap üretir."
-
-**Arama katmanındaki seçenekler:**
-
-1. **TF-IDF** — hızlı ve kelime bazlı güvenli varsayılan
-2. **Foundry Embedding** — model hazırsa anlam bazlı arama
-3. **Hybrid** — kelime ve anlam bazlı sonuçların birleşimi
-
-Embedding modeli hazır değilse Foundry Embedding ve Hybrid modları güvenli
-şekilde TF-IDF yedeğine döner.
+**Konuşma notu:** “Dokümanlar önce küçük parçalara ayrılır. Parçalar ve vektörler SQLite içinde yerel olarak saklanır. Soru geldiğinde retrieval katmanı ilgili parçaları bulur. LLM cevabı zayıfsa fallback doğrudan kaynak chunklardan cevap üretir.”
 
 ---
 
-## Slayt 5 — 🛠 Kullanılan Teknolojiler (30 sn)
+## Slayt 5 — 🔎 Arama Modları (45 sn)
 
-| Teknoloji | Projedeki Görevi |
-|-----------|------------------|
-| **Python 3.11+** | Ana programlama dili |
-| **Streamlit** | Web arayüzü (sadece `app.py`) |
-| **pypdf** | PDF dosyalarından metin çıkarma |
-| **scikit-learn** | TF-IDF vektörleştirme + cosine similarity |
-| **SQLite** | Chunk ve arama vektörlerini yerel olarak saklama |
-| **Foundry Local SDK** | LLM'yi yerelde indirme, yükleme, çalıştırma |
-| **qwen2.5-0.5b** | Varsayılan yerel model (küçük ve hızlı) |
+| Mod | Açıklama |
+|-----|----------|
+| **TF-IDF** | Hızlı ve stabil varsayılan mod. Embedding modeli gerektirmez. |
+| **Foundry Embedding** | `qwen3-embedding-0.6b` hazırsa 1024 boyutlu semantik vektörlerle arama yapar. |
+| **Hybrid Retrieval** | TF-IDF ve Foundry Embedding sonuçlarını birleştirir. Embedding yoksa TF-IDF yedeğine döner. |
 
-**🗣 Konuşma notu:** "Her teknolojinin tek bir sorumluluğu var. Toplamda 7 Python dosyası — küçük ve anlaşılır."
-
-> Hibrit arama deneysel ve isteğe bağlıdır. Demo için varsayılan yöntem, hızlı
-> ve güvenilir TF-IDF aramasıdır.
+**Konuşma notu:** “Hybrid mod hem kelime eşleşmesini hem anlam benzerliğini kullanır. Bu da demo sırasında daha esnek sonuçlar verir.”
 
 ---
 
-## Slayt 6 — 🎬 Demo (1,5 dk)
+## Slayt 6 — 🗃 SQLite Yerel İndeks ve Kaynaklar (35 sn)
 
-1. Sol menüden `demo_proje_bilgisi.txt` belgesi zaten hazır.
-2. **📄 Dokümanları işle** butonuna tıklayın.
-3. **Soru-Cevap** modunda "Bu projenin amacı nedir?" yazıp cevabı alın.
-4. Cevap altındaki **kaynak expander**'ını açın — chunk_id, dosya, sayfa, skor ve önizlemeyi gösterin.
-5. **Doküman Özeti** moduna geçip özet alın.
-6. **Quiz Üret** moduna geçip 5 soruluk test oluşturun.
+- Chunklar SQLite içinde saklanır.
+- TF-IDF vektörleri `tfidf_fallback` provider adıyla saklanır.
+- Foundry embedding vektörleri `foundry_embedding` provider adıyla saklanır.
+- Kaynak gösterimi kullanıcıya cevabın nereden geldiğini gösterir.
 
-**🗣 Konuşma notu:** "Model önceden indirilmiş olmalı. İlk çalıştırma biraz uzun sürebilir. Fallback mesajını görmek için model alias'ı yanlış yazıp deneyebilirsiniz."
+**Konuşma notu:** Test komutuyla provider sayıları gösterilebilir:
+
+```bash
+sqlite3 data/index/rag_index.sqlite "SELECT provider, COUNT(*) FROM embeddings GROUP BY provider;"
+```
 
 ---
 
-## Slayt 7 — 🏁 Sonuç ve Gelecek Geliştirmeler (30 sn)
+## Slayt 7 — 🛡 Güvenli Fallback ve Kapsam Dışı Cevap (40 sn)
+
+- Küçük yerel LLM bazen zayıf veya bozuk cevap üretebilir.
+- Bu durumda sistem kaynak doküman parçalarından güvenli fallback cevap oluşturur.
+- UI bunu kırmızı hata gibi değil, nötr şekilde gösterir:
+
+```text
+Yanıt kaynak dokümanlara göre oluşturuldu.
+```
+
+- Cevap dokümanda yoksa:
+
+```text
+Bu bilgi yüklenen dokümanlarda bulunamadı.
+```
+
+**Konuşma notu:** “Bu yaklaşım hallucination riskini azaltmak için eklendi.”
+
+---
+
+## Slayt 8 — 🎬 5 Dakikalık Demo Akışı (1,5 dk)
+
+1. Uygulamayı aç.
+2. Sol menüden PDF/TXT/Markdown dokümanı yükle.
+3. Arama modunu seç: TF-IDF veya Hybrid.
+4. **Dokümanları işle** butonuna bas.
+5. Soru-Cevap modunda dokümana özgü bir soru sor.
+6. Cevap altındaki kaynak expander’ını aç.
+7. Doküman Özeti modunu göster.
+8. Quiz Üret modunu göster.
+9. Kapsam dışı bir soru sorarak güvenli “bulunamadı” cevabını göster.
+
+**Konuşma notu:** İlk model yüklemesi uzun sürebileceği için demo öncesinde modeli ve embedding indeksini hazırlamak iyi olur.
+
+---
+
+## Slayt 9 — 🛠 Kullanılan Teknolojiler (30 sn)
+
+| Teknoloji | Görevi |
+|-----------|--------|
+| Python 3.11+ | Ana programlama dili |
+| Streamlit | Web arayüzü |
+| pypdf | PDF okuma |
+| scikit-learn | TF-IDF ve cosine similarity |
+| SQLite | Yerel chunk ve vektör indeksi |
+| Foundry Local SDK | Yerel LLM ve embedding desteği |
+| qwen2.5-0.5b | Varsayılan yerel LLM |
+| qwen3-embedding-0.6b | Foundry Embedding modu için embedding modeli |
+
+---
+
+## Slayt 10 — 🏁 Sonuç ve Gelecek Geliştirmeler (30 sn)
 
 **Başarılanlar:**
-- ✅ Kaynaklı, yerel ve çalışan bir RAG MVP'si
-- ✅ Türkçe dil desteği
-- ✅ Güvenli fallback mekanizması
-- ✅ Model gerektirmeyen test (`test_retrieval.py`)
 
-**Gelecek:**
-- 🔮 Daha geniş Foundry Local embedding model ve cihaz desteği
-- 🔮 OCR desteği (taranmış PDF'ler)
-- 🔮 Chat geçmişi
-- 🔮 Çoklu koleksiyon desteği
+- Çalışan Streamlit MVP
+- SQLite yerel indeks
+- TF-IDF retrieval
+- Foundry Embedding retrieval
+- Hybrid Retrieval
+- Kaynak gösterimi
+- Güvenli fallback
+- Özet ve quiz modları
 
-**🗣 Konuşma notu:** "SQLite yerel index ve TF-IDF tabanlı vektör araması kullanıyoruz. Bu yaklaşım indirme gerektirmeden kararlı çalışıyor; gelecekte özel bir embedding modeliyle semantik arama güçlendirilebilir."
+**Gelecek geliştirmeler:**
 
----
+- OCR desteği
+- Sohbet geçmişi
+- Çoklu koleksiyon desteği
+- Daha gelişmiş kaynak vurgulama
+- Daha güçlü yerel modeller
 
-> 💡 **Sunum İpuçları:**
-> - Sunumu 5 dakikada bitirmek için her slaytta **ana mesajı** verin, detaya girme  ün.
-> - Demo sırasında **önce soruyu yazın**, sonra butona basın — boş beklemeyin.
-> - Fallback'i göstermek isterseniz model alias'ı `yok-boyle-bir-model` yapıp deneyin.
-> - Kod göstermeyin — sadece **çalışan uygulamayı** gösterin.
+**Konuşma notu:** “Final hedefi, hızlı, stabil, yerel ve kaynaklı bir Türkçe RAG demosu sunmaktı. Bu hedef karşılandı.”
