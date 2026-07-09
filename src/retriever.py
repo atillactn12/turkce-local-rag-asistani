@@ -11,6 +11,13 @@ META_QUESTION_PHRASES = (
     "rag testi için önerilen sorular",
     "bu dokümanı rag uygulamasında test etmek için",
     "dokümanda bulunmayan bilgiyi test etmek için",
+    "dokümanda bulunmayan bilgi",
+    "cevabı bu dokümanda verilmemiştir",
+    "cevabı verilmemiştir",
+    "bu tür sorularda",
+    "uydurma cevap vermemesi",
+    "bulunamadı demesi beklenir",
+    "test etmek için sorular",
     "önerilen sorular",
     "bu soruların doğru cevabı",
 )

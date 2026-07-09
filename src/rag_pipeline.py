@@ -35,9 +35,15 @@ _META_LINE_PHRASES = (
     "rag testi için önerilen sorular",
     "bu dokümanı rag uygulamasında test etmek için",
     "dokümanda bulunmayan bilgiyi test etmek için",
+    "dokümanda bulunmayan bilgi",
     "bu soruların doğru cevabı",
     "aşağıdaki soruların cevabı bu dokümanda verilmemiştir",
+    "cevabı bu dokümanda verilmemiştir",
+    "cevabı verilmemiştir",
     "bu tür sorularda sistemin uydurma cevap vermemesi",
+    "bu tür sorularda",
+    "uydurma cevap vermemesi",
+    "test etmek için sorular",
     "bulunamadı demesi beklenir",
 )
 
@@ -116,16 +122,43 @@ _DECISION_SUPPORT_QUESTION_TERMS = (
     "yardimci olur",
 )
 
-_OUT_OF_SCOPE_QUESTION_TERMS = (
+_AMOUNT_QUESTION_TERMS = (
     "bütçe",
     "butce",
+    "ücret",
+    "ucret",
+    "maliyet",
+    "fiyat",
     "kaç tl",
     "kac tl",
+    "kaç lira",
+    "kac lira",
+    "ne kadar",
+)
+
+_PERSON_QUESTION_TERMS = (
     "proje yöneticisi",
     "proje yoneticisi",
+    "proje yöneticisi kim",
+    "proje yoneticisi kim",
+    "sorumlu kişi",
+    "sorumlu kisi",
+    "sorumlu kişi kim",
+    "sorumlu kisi kim",
+    "adı nedir",
+    "adi nedir",
+)
+
+_ADDRESS_QUESTION_TERMS = (
     "resmi web adresi",
     "web adresi",
+    "web sitesi",
     "ip adresi",
+    "sunucu ip",
+    "adresi nedir",
+)
+
+_APPLICATION_PLACE_QUESTION_TERMS = (
     "hangi gerçek üniversite",
     "hangi gercek universite",
     "nerede uygulanmıştır",
@@ -133,12 +166,23 @@ _OUT_OF_SCOPE_QUESTION_TERMS = (
 )
 
 _NEGATIVE_TEST_TEXT_TERMS = (
+    "dokümanda bulunmayan bilgi",
+    "dokumanda bulunmayan bilgi",
     "dokümanda bulunmayan bilgiyi test etmek için sorular",
     "dokumanda bulunmayan bilgiyi test etmek icin sorular",
     "aşağıdaki soruların cevabı bu dokümanda verilmemiştir",
     "asagidaki sorularin cevabi bu dokumanda verilmemistir",
+    "cevabı bu dokümanda verilmemiştir",
+    "cevabi bu dokumanda verilmemistir",
+    "cevabı verilmemiştir",
+    "cevabi verilmemistir",
     "bu tür sorularda sistemin uydurma cevap vermemesi",
     "bu tur sorularda sistemin uydurma cevap vermemesi",
+    "bu tür sorularda",
+    "bu tur sorularda",
+    "uydurma cevap vermemesi",
+    "test etmek için sorular",
+    "test etmek icin sorular",
     "bulunamadı demesi beklenir",
     "bulunamadi demesi beklenir",
 )
@@ -221,22 +265,77 @@ def _is_library_manager_benefit_intent(question: str) -> bool:
     )
 
 
+def _line_is_negative_or_test_instruction(line: str) -> bool:
+    """Tek bir satır negatif test yönergesi veya soru örneği mi?"""
+    lowered = str(line).casefold().strip()
+    if not lowered:
+        return False
+    if _contains_any(lowered, _NEGATIVE_TEST_TEXT_TERMS):
+        return True
+    if lowered.startswith(("soru:", "örnek soru:", "ornek soru:")):
+        return True
+    return False
+
+
+def _clean_evidence_lines(text: str) -> list[str]:
+    """Somut cevap ararken negatif test satırlarını ve başlıkları çıkarır."""
+    lines: list[str] = []
+    for raw_line in str(text).splitlines():
+        line = " ".join(raw_line.strip().split())
+        if not line:
+            continue
+        lowered = line.casefold()
+        if re.fullmatch(r"[=\-_*\s]{3,}", line):
+            continue
+        if re.fullmatch(r"\d+[.)]?", line):
+            continue
+        if line.endswith("?"):
+            continue
+        if _line_is_negative_or_test_instruction(line):
+            continue
+        if any(character.isalpha() for character in line) and line == line.upper() and len(line) < 120:
+            continue
+        if any(phrase in lowered for phrase in _META_LINE_PHRASES):
+            continue
+
+        line = re.sub(r"^\d+[.)]\s*", "", line)
+        line = re.sub(r"^[-•]\s*", "", line)
+        if line:
+            lines.append(line)
+    return lines
+
+
 def _answer_evidence_text(chunks: list[dict]) -> str:
     """Meta/negatif test yönergeleri çıkarılmış gerçek cevap aday metnini döndürür."""
-    evidence_chunks = [
-        chunk
-        for chunk in chunks
-        if not is_meta_question_chunk(chunk.get("text", ""))
-        and not _is_test_wrapper_chunk(chunk.get("text", ""))
-        and not _is_negative_test_instruction_text(chunk.get("text", ""))
-    ]
-    return "\n".join(str(chunk.get("text", "")) for chunk in evidence_chunks)
+    evidence_lines: list[str] = []
+    for chunk in chunks:
+        text = chunk.get("text", "")
+        if _is_test_wrapper_chunk(text):
+            continue
+        evidence_lines.extend(_clean_evidence_lines(text))
+    return "\n".join(evidence_lines)
+
+
+def _evidence_sentences(chunks: list[dict]) -> list[str]:
+    """Temiz kanıt metnini kısa cümle/adres satırlarına ayırır."""
+    evidence_text = _answer_evidence_text(chunks)
+    sentences: list[str] = []
+    for line in evidence_text.splitlines():
+        for sentence in re.split(r"(?<=[.!?])\s+", line):
+            clean = " ".join(sentence.strip().split())
+            if len(clean) >= 4:
+                sentences.append(clean)
+    return sentences
 
 
 def _has_real_budget_amount(text: str) -> bool:
-    """Bütçe cevabı için açık TL/₺ tutarı var mı diye bakar."""
+    """Tutar cevabı için açık TL/₺/lira değeri var mı diye bakar."""
     return bool(
-        re.search(r"(?:₺\s*\d[\d.,]*)|(?:\d[\d.,]*\s*(?:tl|try|türk lirası|lira))", text, re.I)
+        re.search(
+            r"(?:₺\s*\d[\d.,]*)|(?:\d[\d.,]*\s*(?:tl|try|türk lirası|turk lirasi|lira))",
+            text,
+            re.I,
+        )
     )
 
 
@@ -253,11 +352,27 @@ def _has_real_ip_address(text: str) -> bool:
 
 
 def _has_real_project_manager(text: str) -> bool:
-    """Proje yöneticisi için sadece soru/yönerge değil, ad-soyadlı kayıt arar."""
+    """Kişi/sorumlu cevabı için sadece yönerge değil, ad-soyadlı kayıt arar."""
     return bool(
         re.search(
-            r"proje yöneticisi\s*[:\-]\s*[A-ZÇĞİÖŞÜ][A-Za-zÇĞİÖŞÜçğıöşü]+(?:\s+[A-ZÇĞİÖŞÜ][A-Za-zÇĞİÖŞÜçğıöşü]+)+",
+            r"(?:proje yöneticisi|proje yoneticisi|sorumlu kişi|sorumlu kisi|sorumlu|yetkili)\s*[:\-]\s*"
+            r"[A-ZÇĞİÖŞÜ][A-Za-zÇĞİÖŞÜçğıöşü]+(?:\s+[A-ZÇĞİÖŞÜ][A-Za-zÇĞİÖŞÜçğıöşü]+)+",
             text,
+            re.I,
+        )
+    )
+
+
+def _has_real_address(text: str) -> bool:
+    """URL/IP veya açık fiziksel adres benzeri somut değer var mı diye bakar."""
+    if _has_real_web_address(text) or _has_real_ip_address(text):
+        return True
+    return bool(
+        re.search(
+            r"(?:adres|address)\s*[:\-]\s*.{8,}"
+            r"|(?:mahallesi|mah\.|caddesi|cad\.|sokak|sok\.|no\s*[:\d])",
+            text,
+            re.I,
         )
     )
 
@@ -275,30 +390,153 @@ def _has_real_application_place(text: str) -> bool:
     )
 
 
-def _should_force_not_found(question: str, chunks: list[dict]) -> bool:
-    """Negatif test sorularında somut cevap yoksa LLM/fallback'e geçmeden durur."""
+def _is_amount_question(question: str) -> bool:
+    """Bütçe/ücret/maliyet/fiyat gibi tutar sorularını tanır."""
+    return _contains_any(question, _AMOUNT_QUESTION_TERMS)
+
+
+def _is_person_name_question(question: str) -> bool:
+    """Sorumlu kişi veya proje yöneticisi gibi kişi adı sorularını tanır."""
+    lowered = str(question).casefold()
+    if any(
+        term in lowered
+        for term in (
+            "proje yöneticisi",
+            "proje yoneticisi",
+            "sorumlu kişi",
+            "sorumlu kisi",
+            "sorumlu kim",
+            "yetkili kim",
+        )
+    ):
+        return True
+    return (
+        ("adı nedir" in lowered or "adi nedir" in lowered)
+        and any(
+            term in lowered
+            for term in ("kişi", "kisi", "sorumlu", "yönetici", "yonetici", "yetkili")
+        )
+    )
+
+
+def _is_address_question(question: str) -> bool:
+    """Web sitesi, IP veya açık adres sorularını tanır."""
+    return _contains_any(question, _ADDRESS_QUESTION_TERMS)
+
+
+def _is_application_place_question(question: str) -> bool:
+    """Gerçek uygulama yeri/kurumu sorularını tanır."""
+    return _contains_any(question, _APPLICATION_PLACE_QUESTION_TERMS)
+
+
+def _requires_concrete_evidence(question: str) -> bool:
+    """Bu soru türü soyut benzerlik yerine somut değer gerektirir mi?"""
+    return (
+        _is_amount_question(question)
+        or _is_person_name_question(question)
+        or _is_address_question(question)
+        or _is_application_place_question(question)
+    )
+
+
+def _answer_has_required_concrete_value(question: str, answer: str) -> bool:
+    """Model cevabı somut değer isteyen soru türüne gerçekten cevap veriyor mu?"""
+    if not _requires_concrete_evidence(question):
+        return True
+    if _is_amount_question(question):
+        return _has_real_budget_amount(answer)
     lowered_question = str(question).casefold()
-    if not _contains_any(lowered_question, _OUT_OF_SCOPE_QUESTION_TERMS):
+    if "ip adresi" in lowered_question or "sunucu ip" in lowered_question:
+        return _has_real_ip_address(answer)
+    if "web adresi" in lowered_question or "web sitesi" in lowered_question or "resmi web" in lowered_question:
+        return _has_real_web_address(answer)
+    if _is_address_question(question):
+        return _has_real_address(answer)
+    if _is_person_name_question(question):
+        return _has_real_project_manager(answer)
+    if _is_application_place_question(question):
+        return _has_real_application_place(answer)
+    return True
+
+
+def _extract_concrete_factual_answer(question: str, chunks: list[dict]) -> str | None:
+    """Somut değer isteyen sorulara dokümandaki açık değerden kısa cevap üretir."""
+    if not _requires_concrete_evidence(question):
+        return None
+
+    sentences = _evidence_sentences(chunks)
+    lowered_question = str(question).casefold()
+
+    if _is_amount_question(question):
+        for sentence in sentences:
+            if _has_real_budget_amount(sentence) and (
+                _contains_any(sentence, _AMOUNT_QUESTION_TERMS)
+                or len(sentences) == 1
+            ):
+                return _complete_sentence(sentence)
+        amount_match = re.search(
+            r"(?:₺\s*\d[\d.,]*)|(?:\d[\d.,]*\s*(?:tl|try|türk lirası|turk lirasi|lira))",
+            "\n".join(sentences),
+            re.I,
+        )
+        if amount_match:
+            return f"Dokümanda ilgili tutar {amount_match.group(0)} olarak verilmiştir."
+        return None
+
+    if _is_person_name_question(question):
+        for sentence in sentences:
+            if _has_real_project_manager(sentence):
+                return _complete_sentence(sentence)
+        return None
+
+    if "ip adresi" in lowered_question or "sunucu ip" in lowered_question:
+        for sentence in sentences:
+            if _has_real_ip_address(sentence):
+                return _complete_sentence(sentence)
+        return None
+
+    if "web adresi" in lowered_question or "web sitesi" in lowered_question or "resmi web" in lowered_question:
+        for sentence in sentences:
+            if _has_real_web_address(sentence):
+                return _complete_sentence(sentence)
+        return None
+
+    if _is_address_question(question):
+        for sentence in sentences:
+            if _has_real_address(sentence):
+                return _complete_sentence(sentence)
+        return None
+
+    if _is_application_place_question(question):
+        for sentence in sentences:
+            if _has_real_application_place(sentence):
+                return _complete_sentence(sentence)
+        return None
+
+    return None
+
+
+def _should_force_not_found(question: str, chunks: list[dict]) -> bool:
+    """Somut değer isteyen sorularda gerçek kanıt yoksa LLM/fallback'e geçmeden durur."""
+    lowered_question = str(question).casefold()
+    if not _requires_concrete_evidence(lowered_question):
         return False
 
     evidence_text = _answer_evidence_text(chunks)
     if not evidence_text.strip():
         return True
 
-    if "bütçe" in lowered_question or "butce" in lowered_question or "kaç tl" in lowered_question or "kac tl" in lowered_question:
+    if _is_amount_question(lowered_question):
         return not _has_real_budget_amount(evidence_text)
-    if "ip adresi" in lowered_question:
+    if "ip adresi" in lowered_question or "sunucu ip" in lowered_question:
         return not _has_real_ip_address(evidence_text)
-    if "web adresi" in lowered_question or "resmi web" in lowered_question:
+    if "web adresi" in lowered_question or "web sitesi" in lowered_question or "resmi web" in lowered_question:
         return not _has_real_web_address(evidence_text)
-    if "proje yöneticisi" in lowered_question or "proje yoneticisi" in lowered_question:
+    if _is_address_question(lowered_question):
+        return not _has_real_address(evidence_text)
+    if _is_person_name_question(lowered_question):
         return not _has_real_project_manager(evidence_text)
-    if (
-        "hangi gerçek üniversite" in lowered_question
-        or "hangi gercek universite" in lowered_question
-        or "nerede uygulanmıştır" in lowered_question
-        or "nerede uygulanmistir" in lowered_question
-    ):
+    if _is_application_place_question(lowered_question):
         return not _has_real_application_place(evidence_text)
 
     return False
@@ -806,8 +1044,7 @@ def _complete_fallback_chunks(retriever, current_chunks: list[dict]) -> list[dic
         text = chunk.get("text", "")
         if (
             chunk_id in known_ids
-            or is_meta_question_chunk(text)
-            or _is_negative_test_instruction_text(text)
+            or not _clean_evidence_lines(text)
         ):
             continue
         completed.append(
@@ -1285,6 +1522,12 @@ def create_extractive_fallback_answer(
     if generic_task == "example_questions":
         return _create_example_questions_fallback(chunks)
 
+    concrete_answer = _extract_concrete_factual_answer(question, chunks)
+    if concrete_answer:
+        return concrete_answer
+    if _requires_concrete_evidence(question):
+        return NOT_FOUND_MESSAGE
+
     known_answer = _known_project_answer(question, chunks)
     if known_answer:
         return known_answer
@@ -1494,6 +1737,7 @@ Cevabın sonunda kullandığın kaynakları dosya adı ve sayfa numarasıyla bel
         answer_bad_before_cleaning
         or getattr(llm_client, "last_answer_had_artifacts", False)
         or _model_answer_is_bad(answer)
+        or not _answer_has_required_concrete_value(question, answer)
         or (mode == "quiz" and not _quiz_answer_is_valid(answer))
     )
     if used_fallback:
